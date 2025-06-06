@@ -14,6 +14,7 @@ import itertools
 import anthropic
 import os
 import uuid
+import glob
 
 # Safe modules that users can import
 SAFE_MODULES = {
@@ -28,6 +29,7 @@ SAFE_MODULES = {
     'anthropic': anthropic,
     'os': os,
     'uuid': uuid,
+    'glob': glob,
 }
 
 def safe_import(name, *args, **kwargs):
@@ -68,6 +70,16 @@ def execute_python_function(function_code: str, input_value: str, timeout: int =
         safe_globals_dict['__builtins__'] = safe_builtins.copy()
         safe_globals_dict['__builtins__']['__import__'] = safe_import
         safe_globals_dict['__builtins__']['open'] = open  # Add file open capability
+        safe_globals_dict['__builtins__']['max'] = max
+        safe_globals_dict['__builtins__']['min'] = min
+        safe_globals_dict['__builtins__']['len'] = len
+        safe_globals_dict['__builtins__']['sum'] = sum
+        safe_globals_dict['__builtins__']['sorted'] = sorted
+        safe_globals_dict['__builtins__']['reversed'] = reversed
+        safe_globals_dict['__builtins__']['enumerate'] = enumerate
+        safe_globals_dict['__builtins__']['zip'] = zip
+        safe_globals_dict['__builtins__']['all'] = all
+        safe_globals_dict['__builtins__']['any'] = any
         safe_globals_dict['_getattr_'] = getattr
         safe_globals_dict['_getitem_'] = lambda obj, key: obj[key]
         safe_globals_dict['_write_'] = lambda x: x  # Allow writing to variables
