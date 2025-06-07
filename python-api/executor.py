@@ -98,13 +98,13 @@ def execute_python_function(function_code: str, input_value: str, timeout: int =
         # Check if 'process' function exists
         if 'process' not in local_vars:
             with open(log_path, 'a') as log:
-                log.write("❌ Function 'process(input_text)' not found in code\n")
+                log.write("❌ Function 'process(inputs)' not found in code\n")
                 log.flush()
             return {
                 "success": False,
                 "output": None,
                 "execution_time": time.time() - start_time,
-                "error": "Function 'process(input_text)' not found in code",
+                "error": "Function 'process(inputs)' not found in code. The function should accept a dictionary of inputs.",
                 "error_type": "FunctionNotFoundError",
                 "log_file_id": log_file_id,
                 "log_path": log_path
@@ -116,9 +116,30 @@ def execute_python_function(function_code: str, input_value: str, timeout: int =
             log.write("🚀 Executing process function...\n")
             log.flush()
         
+        # Parse input_value as JSON to get multiple inputs, fallback to single input
+        try:
+            if input_value.strip().startswith('{'):
+                # Multiple inputs as JSON
+                inputs_dict = json.loads(input_value)
+                with open(log_path, 'a') as log:
+                    log.write(f"📊 Processing multiple inputs: {list(inputs_dict.keys())}\n")
+                    log.flush()
+            else:
+                # Single input (backward compatibility)
+                inputs_dict = {"input": input_value}
+                with open(log_path, 'a') as log:
+                    log.write("📝 Processing single input (legacy mode)\n")
+                    log.flush()
+        except json.JSONDecodeError:
+            # Treat as single string input
+            inputs_dict = {"input": input_value}
+            with open(log_path, 'a') as log:
+                log.write("📝 Processing single string input\n")
+                log.flush()
+        
         # Execute the process function
         try:
-            result = process_func(input_value)
+            result = process_func(inputs_dict)
         except Exception as e:
             with open(log_path, 'a') as log:
                 log.write(f"❌ Function raised exception: {str(e)}\n")
