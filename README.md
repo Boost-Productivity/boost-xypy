@@ -1,6 +1,6 @@
 # Smart Folders Flow
 
-A React Flow application where you can create "smart folders" that execute Python functions and subscribe to each other through a visual node interface.
+A React Flow application where you can create "smart folders" that execute Python functions and subscribe to each other through a visual node interface. Now featuring a stunning **3D Neural Network Visualization**! 🌐
 
 ## 🚀 **What It Does**
 
@@ -8,12 +8,32 @@ A React Flow application where you can create "smart folders" that execute Pytho
 - **Subscriptions**: Connect folders so they automatically execute when their "publisher" runs
 - **Python**: Functions execute on a Python backend via FastAPI
 - **Chain Reactions**: When one folder executes, it triggers all its subscribers with the output
+- **3D Visualization**: See your workflow as an interactive 3D neural network on a globe! 🧠
+
+## 🌐 **3D Neural Network Visualization**
+
+Experience your Smart Folders workflow like never before with our immersive 3D visualization:
+
+- **Globe Interface**: Nodes positioned on a 3D sphere like continents
+- **Workflow Flow**: Source nodes start at the front, subscribers flow westward around the globe
+- **Animated Connections**: Flowing particles show data movement between connected nodes
+- **Interactive Controls**: Spin, tilt, and zoom the globe to explore your network
+- **Smart Positioning**: Nodes cluster in realistic latitudes like Earth's landmasses
+- **Real-time Updates**: Reflects your actual Smart Folders data and connections
+
+### Running the 3D Visualization
+```bash
+cd neural-graph-3d
+npm install
+npm start
+# Opens at http://localhost:3000
+```
 
 ## 🏗️ **Architecture**
 
 ```
-React Flow App (Frontend)  ←→  FastAPI Server (Python Backend)
-    Port 3000                     Port 8000
+React Flow App (Frontend)  ←→  FastAPI Server (Python Backend)  ←→  3D Neural Viz
+    Port 3000                     Port 8000                          Port 3000
 ```
 
 ## 🛠️ **Running the Application**
@@ -32,8 +52,16 @@ npm install
 npm start
 ```
 
-### 3. Open Your Browser
+### 3. Start the 3D Visualization (Optional)
+```bash
+cd neural-graph-3d
+npm install
+npm start
+```
+
+### 4. Open Your Browser
 - **React App**: http://localhost:3000
+- **3D Visualization**: http://localhost:3000 (if running neural-graph-3d)
 - **API Docs**: http://localhost:8000/docs
 
 ## 🎯 **How to Use**
@@ -43,6 +71,7 @@ npm start
 3. **Create Subscriptions**: Drag from the right handle (●) of one folder to the left handle (●) of another
 4. **Execute**: Click "Execute" on any folder to run its function and trigger subscribers
 5. **Watch the Magic**: Connected folders automatically execute in sequence!
+6. **3D View**: Launch the neural visualization to see your workflow as a living 3D network
 
 ## 🐍 **Python Function Format**
 
@@ -68,6 +97,16 @@ boost-xypy/
 │   │   ├── SmartFolderNode.tsx  # Node component
 │   │   └── App.css         # Styling
 │   └── package.json
+├── neural-graph-3d/        # 3D Neural Network Visualization
+│   ├── src/
+│   │   ├── components/     # 3D React components
+│   │   │   ├── NeuralNetwork3D.tsx    # Main 3D canvas
+│   │   │   ├── NeuronNode.tsx         # 3D node spheres
+│   │   │   └── NeuralConnection.tsx   # Animated connections
+│   │   ├── utils/
+│   │   │   └── sphereLayout.ts        # Globe positioning logic
+│   │   └── types.ts        # TypeScript interfaces
+│   └── package.json
 ├── python-api/             # FastAPI backend
 │   ├── main.py             # FastAPI app
 │   ├── executor.py         # Safe Python execution
@@ -87,8 +126,8 @@ boost-xypy/
 2. **Transform**: Apply mathematical operations
 3. **Format**: Create final output
 
-Connect them in sequence and watch the data flow through your pipeline!
+Connect them in sequence and watch the data flow through your pipeline! Then visualize it in 3D to see your data flowing around the globe like neural pathways! 🌍⚡
 
 ---
 
-**Built with**: React Flow, FastAPI, RestrictedPython, Zustand, TypeScript 
+**Built with**: React Flow, FastAPI, RestrictedPython, Zustand, TypeScript, Three.js, React Three Fiber
