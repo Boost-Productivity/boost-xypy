@@ -6,7 +6,7 @@ A React Flow application where you can create "smart folders" that execute Pytho
 
 - **Smart Folders**: Visual nodes containing Python functions
 - **Subscriptions**: Connect folders so they automatically execute when their "publisher" runs
-- **Real Python**: Functions execute on a secure Python backend via FastAPI
+- **Python**: Functions execute on a Python backend via FastAPI
 - **Chain Reactions**: When one folder executes, it triggers all its subscribers with the output
 
 ## 🏗️ **Architecture**
@@ -56,13 +56,6 @@ def process(input_text):
 **Available Modules:**
 - `math`, `string`, `re`, `json`
 - `datetime`, `random`, `collections`, `itertools`
-
-## 🔒 **Security Features**
-
-- **Sandboxed Execution**: RestrictedPython ensures safe code execution
-- **Timeout Protection**: Functions are limited to 5 seconds
-- **Module Restrictions**: Only safe, pre-approved modules allowed
-- **CORS Protection**: API only accepts requests from the React app
 
 ## 📁 **Project Structure**
 
