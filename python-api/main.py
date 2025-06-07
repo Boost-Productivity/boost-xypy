@@ -7,7 +7,7 @@ import sys
 import json
 import subprocess
 import os
-from executor import execute_python_function, execute_python_function_with_logging
+from executor import execute_python_function
 from storage import save_flow, load_flow, list_flows
 
 app = FastAPI(
@@ -149,7 +149,7 @@ async def execute_function_with_logging(request: ExecutionRequest):
         
         # Start execution in background thread
         def run_execution():
-            result = execute_python_function_with_logging(
+            result = execute_python_function(
                 function_code=request.function_code,
                 input_value=request.input_value,
                 timeout=request.timeout,
