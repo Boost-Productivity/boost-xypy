@@ -89,8 +89,8 @@ export const NeuronNode: React.FC<NeuronNodeProps> = ({ node, isSelected, onSele
             {/* Node label - always visible */}
             <Billboard>
                 <Text
-                    position={[0, nodeSize + 0.08, 0]}
-                    fontSize={0.06}
+                    position={[0, nodeSize + 0.02, 0]}
+                    fontSize={0.03}
                     color="#ffffff"
                     anchorX="center"
                     anchorY="middle"
@@ -103,8 +103,8 @@ export const NeuronNode: React.FC<NeuronNodeProps> = ({ node, isSelected, onSele
             {node.connectionCount > 0 && (
                 <Billboard>
                     <Text
-                        position={[0, -nodeSize - 0.05, 0]}
-                        fontSize={0.04}
+                        position={[0, -nodeSize - 0.0125, 0]}
+                        fontSize={0.02}
                         color="#00d8ff"
                         anchorX="center"
                         anchorY="middle"

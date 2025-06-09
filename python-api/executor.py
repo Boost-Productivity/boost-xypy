@@ -19,6 +19,18 @@ import zipfile
 import google.cloud
 import google.cloud.storage
 
+# Global session registry for cancellation checks
+_session_registry = {}
+
+def register_session_for_cancellation(log_file_id: str, session_data: Dict):
+    """Register a session for cancellation checks"""
+    _session_registry[log_file_id] = session_data
+
+def is_execution_cancelled(log_file_id: str) -> bool:
+    """Check if execution should be cancelled"""
+    session = _session_registry.get(log_file_id)
+    return session and session.get("status") == "cancelled"
+
 # Available modules that users can import
 AVAILABLE_MODULES = {
     'math': math,
@@ -87,6 +99,14 @@ def execute_python_function(function_code: str, input_value: str, timeout: int =
         
         exec_globals['log_progress'] = log_progress
         
+        # Add cancellation check helper
+        def check_cancellation():
+            """Helper function for user code to check if execution was cancelled"""
+            if is_execution_cancelled(log_file_id):
+                raise KeyboardInterrupt("Execution cancelled by user")
+        
+        exec_globals['check_cancellation'] = check_cancellation
+        
         with open(log_path, 'a') as log:
             log.write("⚙️ Executing function...\n")
             log.flush()
@@ -140,6 +160,19 @@ def execute_python_function(function_code: str, input_value: str, timeout: int =
         # Execute the process function
         try:
             result = process_func(inputs_dict)
+        except KeyboardInterrupt as e:
+            with open(log_path, 'a') as log:
+                log.write(f"🚫 Function cancelled: {str(e)}\n")
+                log.flush()
+            return {
+                "success": False,
+                "output": None,
+                "execution_time": time.time() - start_time,
+                "error": str(e),
+                "error_type": "CancelledError",
+                "log_file_id": log_file_id,
+                "log_path": log_path
+            }
         except Exception as e:
             with open(log_path, 'a') as log:
                 log.write(f"❌ Function raised exception: {str(e)}\n")

@@ -59,11 +59,16 @@ export const NeuralNetwork3D: React.FC<NeuralNetwork3DProps> = ({ data }) => {
                     enablePan={true}
                     enableZoom={true}
                     enableRotate={true}
+                    enableDamping={true}
+                    dampingFactor={0.05}
+                    rotateSpeed={0.5}
+                    zoomSpeed={0.2}
+                    panSpeed={0.8}
                     autoRotate={false}
-                    minDistance={3}
-                    maxDistance={20}
-                    minPolarAngle={Math.PI / 3}
-                    maxPolarAngle={2 * Math.PI / 3}
+                    minDistance={5}
+                    maxDistance={15}
+                    minPolarAngle={Math.PI / 4}
+                    maxPolarAngle={3 * Math.PI / 4}
                 />
 
                 {/* Ambient lighting */}

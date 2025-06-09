@@ -7,8 +7,14 @@ import sys
 import json
 import subprocess
 import os
-from executor import execute_python_function
+import threading
+import tempfile
+import time
+from executor import execute_python_function, register_session_for_cancellation
 from storage import save_flow, load_flow, list_flows
+
+# Session management for execution cancellation
+execution_sessions: Dict[str, Dict[str, Any]] = {}
 
 app = FastAPI(
     title="Smart Folder Python Executor",
@@ -19,7 +25,7 @@ app = FastAPI(
 # Enable CORS for React app
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # React app URL
+    allow_origins=["http://localhost:3000", "http://localhost:3001"],  # React app URLs
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -134,10 +140,6 @@ async def execute_function_with_logging(request: ExecutionRequest):
     Returns immediately with log_file_id for polling.
     """
     try:
-        import asyncio
-        import threading
-        import tempfile
-        
         # Generate log file ID immediately
         log_file_id = str(__import__('uuid').uuid4())
         log_path = os.path.join(tempfile.gettempdir(), f"smart_folder_log_{log_file_id}.txt")
@@ -146,6 +148,18 @@ async def execute_function_with_logging(request: ExecutionRequest):
         with open(log_path, 'w') as log:
             log.write("🚀 Starting execution...\n")
             log.flush()
+        
+        # Track session
+        execution_sessions[log_file_id] = {
+            "start_time": time.time(),
+            "status": "running",
+            "log_path": log_path,
+            "thread_ref": None,
+            "process_refs": []
+        }
+        
+        # Register session for cancellation checks
+        register_session_for_cancellation(log_file_id, execution_sessions[log_file_id])
         
         # Start execution in background thread
         def run_execution():
@@ -156,6 +170,14 @@ async def execute_function_with_logging(request: ExecutionRequest):
                 log_file_id=log_file_id  # Pass existing log file ID
             )
             
+            # Check if session was cancelled
+            session = execution_sessions.get(log_file_id)
+            if session and session["status"] == "cancelled":
+                with open(log_path, 'a') as log:
+                    log.write("🚫 EXECUTION CANCELLED\n--- FINAL RESULT ---\nExecution was cancelled by user\n")
+                    log.flush()
+                return
+            
             # Write completion status to log
             with open(log_path, 'a') as log:
                 if result["success"]:
@@ -163,11 +185,18 @@ async def execute_function_with_logging(request: ExecutionRequest):
                 else:
                     log.write(f"❌ EXECUTION FAILED\n--- ERROR ---\n{result['error']}\n")
                 log.flush()
+            
+            # Update session status
+            if log_file_id in execution_sessions:
+                execution_sessions[log_file_id]["status"] = "completed"
         
         # Start background execution
         thread = threading.Thread(target=run_execution)
         thread.daemon = True
         thread.start()
+        
+        # Store thread reference
+        execution_sessions[log_file_id]["thread_ref"] = thread
         
         # Return immediately with log file ID
         return {
@@ -180,6 +209,51 @@ async def execute_function_with_logging(request: ExecutionRequest):
         raise HTTPException(
             status_code=500,
             detail=f"Internal server error: {str(e)}"
+        )
+
+@app.post("/api/cancel/{log_file_id}")
+async def cancel_execution(log_file_id: str):
+    """
+    Cancel a running execution by log file ID.
+    """
+    try:
+        session = execution_sessions.get(log_file_id)
+        
+        if not session:
+            raise HTTPException(status_code=404, detail="Execution session not found")
+        
+        if session["status"] != "running":
+            return {
+                "success": True,
+                "message": f"Execution already {session['status']}",
+                "log_file_id": log_file_id
+            }
+        
+        # Mark session as cancelled
+        session["status"] = "cancelled"
+        
+        # Write cancellation marker to log file
+        log_path = session.get("log_path")
+        if log_path and os.path.exists(log_path):
+            with open(log_path, 'a') as log:
+                log.write("🚫 Cancellation requested...\n")
+                log.flush()
+        
+        # TODO: Kill any subprocess references if we had them
+        # For now, the thread will check the cancelled status
+        
+        return {
+            "success": True,
+            "message": "Execution cancelled",
+            "log_file_id": log_file_id
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to cancel execution: {str(e)}"
         )
 
 @app.post("/api/flows/save")
@@ -234,6 +308,33 @@ async def list_flows_endpoint():
         raise HTTPException(
             status_code=500,
             detail=f"Failed to list flows: {str(e)}"
+        )
+
+@app.get("/api/flow-data")
+async def get_flow_data():
+    """
+    Get flow data in the format expected by the 3D neural visualization
+    """
+    try:
+        # Load the default flow
+        result = load_flow("default")
+        
+        if result["success"]:
+            return {
+                "nodes": result["nodes"],
+                "edges": result["edges"]
+            }
+        else:
+            # Return empty structure if no flow found
+            return {
+                "nodes": [],
+                "edges": []
+            }
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get flow data: {str(e)}"
         )
 
 @app.get("/api/logs/{log_file_id}")
