@@ -1,0 +1,80 @@
+import nodeRegistry from '../NodeRegistry';
+
+// Import base node
+import SmartFolderNode from '../base/SmartFolderNode';
+import { NodeTypeConfig, NodeFactory, BaseNodeData } from '../base/BaseNode.types';
+
+// Import custom nodes
+import { brainDumpNodeConfig, brainDumpNodeFactory } from './BrainDumpNode';
+import { labelNodeConfig, labelNodeFactory } from './LabelNode';
+import { videoRecorderNodeConfig, videoRecorderNodeFactory } from './VideoRecorderNode';
+
+// Register the base SmartFolderNode
+const smartFolderNodeConfig: NodeTypeConfig = {
+    type: 'smartFolder',
+    displayName: 'Smart Folder',
+    description: 'Base Python function processing node',
+    component: SmartFolderNode,
+    defaultData: {
+        nodeType: 'smartFolder',
+        label: 'Smart Folder',
+        pythonFunction: 'def process(inputs):\n    # Access inputs with inputs.get("key", "default")\n    manual = inputs.get("manual", "")\n    return f"Processed: {manual}"',
+        isExecuting: false,
+        lastOutput: '',
+        streamingLogs: '',
+        inputs: {},
+        manualInput: '',
+    },
+    icon: '📁',
+    color: '#0066cc'
+};
+
+const smartFolderNodeFactory: NodeFactory = (position) => {
+    return {
+        id: Date.now().toString(),
+        type: 'smartFolder',
+        position: {
+            x: position.x - 150,
+            y: position.y - 75,
+        },
+        data: {
+            nodeType: 'smartFolder',
+            label: `Smart Folder ${Date.now()}`,
+            pythonFunction: 'def process(inputs):\n    # Access inputs with inputs.get("key", "default")\n    manual = inputs.get("manual", "")\n    return f"Processed: {manual}"',
+            isExecuting: false,
+            lastOutput: '',
+            streamingLogs: '',
+            inputs: {},
+            manualInput: '',
+        } as BaseNodeData,
+    };
+};
+
+// Auto-register all nodes
+const registerNodes = () => {
+    // Register base node
+    nodeRegistry.register(smartFolderNodeConfig, smartFolderNodeFactory);
+
+    // Register custom nodes
+    nodeRegistry.register(brainDumpNodeConfig, brainDumpNodeFactory);
+    nodeRegistry.register(labelNodeConfig, labelNodeFactory);
+    nodeRegistry.register(videoRecorderNodeConfig, videoRecorderNodeFactory);
+
+    console.log(`✅ Registered ${nodeRegistry.getNodeTypes().length} node types`);
+};
+
+// Initialize registration
+registerNodes();
+
+// Export for potential external use
+export {
+    brainDumpNodeConfig,
+    labelNodeConfig,
+    videoRecorderNodeConfig,
+    brainDumpNodeFactory,
+    labelNodeFactory,
+    videoRecorderNodeFactory
+};
+
+export default nodeRegistry;
+export { nodeRegistry }; 

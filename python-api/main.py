@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -335,6 +335,58 @@ async def get_flow_data():
         raise HTTPException(
             status_code=500,
             detail=f"Failed to get flow data: {str(e)}"
+        )
+
+@app.post("/api/upload-video")
+async def upload_video(
+    video: UploadFile = File(...),
+    directory: str = Form(...),
+    nodeId: str = Form(...)
+):
+    """
+    Upload and save video file to specified server directory
+    """
+    try:
+        # Validate file type
+        if not video.content_type or not video.content_type.startswith('video/'):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid file type: {video.content_type}. Expected video file."
+            )
+        
+        # Ensure directory exists
+        os.makedirs(directory, exist_ok=True)
+        
+        # Generate safe filename
+        safe_filename = video.filename or f"video_{int(time.time())}.webm"
+        # Remove any path traversal attempts
+        safe_filename = os.path.basename(safe_filename)
+        
+        # Full file path
+        file_path = os.path.join(directory, safe_filename)
+        
+        # Save file to server
+        with open(file_path, "wb") as buffer:
+            content = await video.read()
+            buffer.write(content)
+        
+        # Get absolute path for return
+        abs_file_path = os.path.abspath(file_path)
+        
+        return {
+            "success": True,
+            "filePath": abs_file_path,
+            "filename": safe_filename,
+            "directory": directory,
+            "nodeId": nodeId,
+            "fileSize": len(content),
+            "contentType": video.content_type
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Video upload failed: {str(e)}"
         )
 
 @app.get("/api/logs/{log_file_id}")
