@@ -38,6 +38,21 @@ const SmartFolderNode: React.FC<NodeProps> = ({ id, data }) => {
 
     const nodeData = data as BaseNodeData;
 
+    // Calculate dynamic columns based on content
+    const calculateDynamicCols = (content: string): number => {
+        const lines = content.split('\n');
+        const maxLineLength = Math.max(...lines.map(line => line.length));
+        // Use at least 30 cols, but expand based on content (with a reasonable max)
+        return Math.min(Math.max(maxLineLength + 5, 30), 120);
+    };
+
+    // Calculate dynamic rows based on content
+    const calculateDynamicRows = (content: string): number => {
+        const lines = content.split('\n');
+        // Use at least 4 rows, but expand based on content (with a reasonable max)
+        return Math.min(Math.max(lines.length, 4), 30);
+    };
+
     const handleExecute = () => {
         executeSmartFolder(id);
     };
@@ -127,8 +142,8 @@ const SmartFolderNode: React.FC<NodeProps> = ({ id, data }) => {
                         <textarea
                             defaultValue={nodeData.pythonFunction}
                             onBlur={(e) => handleFunctionChange(e.target.value)}
-                            rows={4}
-                            cols={30}
+                            rows={calculateDynamicRows(nodeData.pythonFunction)}
+                            cols={calculateDynamicCols(nodeData.pythonFunction)}
                             autoFocus
                             className="nodrag nowheel"
                         />
@@ -173,7 +188,7 @@ const SmartFolderNode: React.FC<NodeProps> = ({ id, data }) => {
                         onFocus={handleInputFocus}
                         onBlur={(e) => editingInput ? handleInputBlur(e.target.value) : undefined}
                         placeholder="Enter input text..."
-                        rows={3}
+                        rows={calculateDynamicRows(nodeData.manualInput)}
                         className="input-textarea nodrag nowheel"
                     />
                 </div>
