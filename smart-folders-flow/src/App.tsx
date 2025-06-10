@@ -24,12 +24,17 @@ import './App.css';
 const selector = (state: RFState) => ({
   nodes: state.nodes,
   edges: state.edges,
+  selectedNodes: state.selectedNodes,
+  selectedEdges: state.selectedEdges,
   onNodesChange: state.onNodesChange,
   onEdgesChange: state.onEdgesChange,
   onConnect: state.onConnect,
+  onSelectionChange: state.onSelectionChange,
   addSmartFolder: state.addSmartFolder,
   addCustomNode: state.addCustomNode,
   deleteEdge: state.deleteEdge,
+  deleteSelectedElements: state.deleteSelectedElements,
+  executeSelectedNodes: state.executeSelectedNodes,
   isLoading: state.isLoading,
   isSaving: state.isSaving,
   lastSaved: state.lastSaved,
@@ -62,12 +67,17 @@ function FlowComponent() {
   const {
     nodes,
     edges,
+    selectedNodes,
+    selectedEdges,
     onNodesChange,
     onEdgesChange,
     onConnect,
+    onSelectionChange,
     addSmartFolder,
     addCustomNode,
     deleteEdge,
+    deleteSelectedElements,
+    executeSelectedNodes,
     isLoading,
     isSaving,
     lastSaved,
@@ -165,12 +175,26 @@ function FlowComponent() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onSelectionChange={onSelectionChange}
         nodeTypes={nodeTypes}
         onPaneClick={onPaneClick}
         onEdgeClick={onEdgeClick}
+
+        // Multi-selection configuration
+        selectionKeyCode="Shift"
+        multiSelectionKeyCode={['Meta', 'Control']}
+        deleteKeyCode={['Delete', 'Backspace']}
+
+        // Selection behavior
+        selectionOnDrag={false}
+        selectNodesOnDrag={true}
+        elevateNodesOnSelect={true}
+
+        // Viewport controls
         zoomOnDoubleClick={false}
         minZoom={0.001}
         fitView
+
         defaultEdgeOptions={{
           type: 'bezier',
           animated: true,
@@ -188,11 +212,70 @@ function FlowComponent() {
           }}
         />
 
+        {/* Selection Toolbar - appears when nodes are selected */}
+        {selectedNodes.length > 0 && (
+          <Panel position="bottom-left" className="panel" style={{ backgroundColor: '#e3f2fd' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+              <div style={{ fontWeight: 'bold', color: '#1976d2' }}>
+                🔍 {selectedNodes.length} node{selectedNodes.length > 1 ? 's' : ''} selected
+                {selectedEdges.length > 0 && `, ${selectedEdges.length} edge${selectedEdges.length > 1 ? 's' : ''}`}
+              </div>
+
+              <button
+                onClick={executeSelectedNodes}
+                style={{
+                  background: '#4caf50',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '8px 12px',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  fontWeight: 'bold',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+                title="Execute all selected nodes"
+              >
+                🚀 Execute Selected
+              </button>
+
+              <button
+                onClick={deleteSelectedElements}
+                style={{
+                  background: '#f44336',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '8px 12px',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  fontWeight: 'bold',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+                title="Delete selected nodes and edges"
+              >
+                🗑️ Delete Selected
+              </button>
+            </div>
+          </Panel>
+        )}
+
         {/* Main Control Panel */}
         <Panel position="top-left" className="panel">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
             <h2 style={{ margin: 0 }}>Smart Folders Flow</h2>
             <ThemeToggle />
+          </div>
+          <div style={{ fontSize: '13px', lineHeight: '1.4', marginBottom: '12px' }}>
+            <p><strong>Multi-Selection:</strong></p>
+            <p>• <kbd>Shift</kbd> + drag for selection box</p>
+            <p>• <kbd>Cmd/Ctrl</kbd> + click for individual selection</p>
+            <p>• Drag any selected node to move the group</p>
+            <p>• <kbd>Del/Backspace</kbd> to delete selected</p>
           </div>
           <p>Double-click to add a basic smart folder</p>
           <p>Connect folders to create subscriptions</p>

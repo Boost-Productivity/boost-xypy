@@ -8,6 +8,7 @@ import {
     OnEdgesChange,
     Connection,
     addEdge,
+    OnSelectionChangeFunc,
 } from '@xyflow/react';
 import { BaseNodeData } from './nodes/base/BaseNode.types';
 
@@ -20,14 +21,19 @@ export type SmartFolderNode = Node<SmartFolderData, 'smartFolder'>;
 export interface RFState {
     nodes: Node[];
     edges: Edge[];
+    selectedNodes: Node[];
+    selectedEdges: Edge[];
     onNodesChange: OnNodesChange;
     onEdgesChange: OnEdgesChange;
     onConnect: (connection: Connection) => void;
+    onSelectionChange: OnSelectionChangeFunc;
     addSmartFolder: (position: { x: number; y: number }) => void;
     addCustomNode: (type: string, position: { x: number; y: number }, customData?: any) => void;
     deleteSmartFolder: (nodeId: string) => void;
     deleteEdge: (edgeId: string) => void;
+    deleteSelectedElements: () => void;
     executeSmartFolder: (nodeId: string, inputs?: Record<string, any>) => void;
+    executeSelectedNodes: () => void;
     cancelExecution: (nodeId: string) => void;
     updateSmartFolderFunction: (nodeId: string, pythonFunction: string) => void;
     updateSmartFolderLabel: (nodeId: string, label: string) => void;
@@ -242,6 +248,8 @@ let saveTimeout: NodeJS.Timeout | null = null;
 const useStore = create<RFState>((set, get) => ({
     nodes: initialNodes,
     edges: initialEdges,
+    selectedNodes: [],
+    selectedEdges: [],
     isLoading: false,
     isSaving: false,
     lastSaved: null,
@@ -280,6 +288,74 @@ const useStore = create<RFState>((set, get) => ({
         saveTimeout = setTimeout(() => {
             get().saveFlow();
         }, 2000);
+    },
+
+    onSelectionChange: ({ nodes, edges }) => {
+        set({
+            selectedNodes: nodes,
+            selectedEdges: edges,
+        });
+        console.log(`🔍 Selection: ${nodes.length} nodes, ${edges.length} edges`);
+    },
+
+    deleteSelectedElements: () => {
+        const { selectedNodes, selectedEdges, nodes, edges } = get();
+
+        if (selectedNodes.length === 0 && selectedEdges.length === 0) {
+            console.log('No elements selected for deletion');
+            return;
+        }
+
+        const selectedNodeIds = selectedNodes.map(n => n.id);
+        const selectedEdgeIds = selectedEdges.map(e => e.id);
+
+        // Remove selected nodes
+        const updatedNodes = nodes.filter(n => !selectedNodeIds.includes(n.id));
+
+        // Remove selected edges and edges connected to deleted nodes
+        const updatedEdges = edges.filter(e =>
+            !selectedEdgeIds.includes(e.id) &&
+            !selectedNodeIds.includes(e.source) &&
+            !selectedNodeIds.includes(e.target)
+        );
+
+        set({
+            nodes: updatedNodes,
+            edges: updatedEdges,
+            selectedNodes: [],
+            selectedEdges: [],
+        });
+
+        console.log(`🗑️ Deleted ${selectedNodes.length} nodes and ${edges.length - updatedEdges.length} edges`);
+
+        // Auto-save after deletion
+        if (saveTimeout) clearTimeout(saveTimeout);
+        saveTimeout = setTimeout(() => {
+            get().saveFlow();
+        }, 2000);
+    },
+
+    executeSelectedNodes: async () => {
+        const { selectedNodes } = get();
+
+        if (selectedNodes.length === 0) {
+            console.log('No nodes selected for execution');
+            return;
+        }
+
+        console.log(`🚀 Executing ${selectedNodes.length} selected nodes`);
+
+        // Execute all selected nodes in parallel
+        const executions = selectedNodes.map(node =>
+            get().executeSmartFolder(node.id)
+        );
+
+        try {
+            await Promise.all(executions);
+            console.log('✅ All selected nodes executed successfully');
+        } catch (error) {
+            console.error('❌ Error executing selected nodes:', error);
+        }
     },
 
     addSmartFolder: (position) => {
