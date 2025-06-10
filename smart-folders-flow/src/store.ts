@@ -554,7 +554,16 @@ const useStore = create<RFState>((set, get) => ({
         set({
             nodes: get().nodes.map(n =>
                 n.id === nodeId
-                    ? { ...n, data: { ...n.data as SmartFolderData, ...customData } }
+                    ? {
+                        ...n,
+                        data: {
+                            ...n.data as SmartFolderData,
+                            customData: {
+                                ...(n.data as SmartFolderData).customData,
+                                ...customData
+                            }
+                        }
+                    }
                     : n
             ),
         });

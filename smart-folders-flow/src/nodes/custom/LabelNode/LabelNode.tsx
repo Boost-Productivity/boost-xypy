@@ -20,15 +20,13 @@ const LabelNode: React.FC<NodeProps> = ({ id, data, ...props }) => {
         mode: 'label',
         fontSize: 24,
         textColor: '#333333',
-        backgroundColor: '#ffffff'
+        backgroundColor: '#ffffff',
+        maxWidth: 1200
     };
 
     const handleToggleMode = () => {
         updateNodeCustomData(id, {
-            customData: {
-                ...customData,
-                mode: customData.mode === 'label' ? 'function' : 'label'
-            }
+            mode: customData.mode === 'label' ? 'function' : 'label'
         });
     };
 
@@ -40,28 +38,19 @@ const LabelNode: React.FC<NodeProps> = ({ id, data, ...props }) => {
 
     const handleFontSizeChange = (newSize: number) => {
         updateNodeCustomData(id, {
-            customData: {
-                ...customData,
-                fontSize: newSize
-            }
+            fontSize: newSize
         });
     };
 
     const handleColorChange = (newColor: string) => {
         updateNodeCustomData(id, {
-            customData: {
-                ...customData,
-                textColor: newColor
-            }
+            textColor: newColor
         });
     };
 
     const handleBackgroundChange = (newBg: string) => {
         updateNodeCustomData(id, {
-            customData: {
-                ...customData,
-                backgroundColor: newBg
-            }
+            backgroundColor: newBg
         });
     };
 
@@ -80,7 +69,7 @@ const LabelNode: React.FC<NodeProps> = ({ id, data, ...props }) => {
                 borderRadius: '8px',
                 padding: '16px 24px',
                 minWidth: '200px',
-                maxWidth: '600px',
+                maxWidth: `${customData.maxWidth}px`,
                 position: 'relative',
                 boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
                 transition: 'all 0.3s ease',
@@ -163,14 +152,29 @@ const LabelNode: React.FC<NodeProps> = ({ id, data, ...props }) => {
                     <div style={{ marginBottom: '8px' }}>
                         <label style={{ display: 'block', marginBottom: '4px' }}>Font Size:</label>
                         <input
+                            className="nodrag"
                             type="range"
                             min="12"
-                            max="72"
+                            max="800"
                             value={customData.fontSize}
                             onChange={(e) => handleFontSizeChange(parseInt(e.target.value))}
                             style={{ width: '100%' }}
                         />
                         <span>{customData.fontSize}px</span>
+                    </div>
+
+                    <div style={{ marginBottom: '8px' }}>
+                        <label style={{ display: 'block', marginBottom: '4px' }}>Max Width:</label>
+                        <input
+                            className="nodrag"
+                            type="range"
+                            min="200"
+                            max="2000"
+                            value={customData.maxWidth || 1200}
+                            onChange={(e) => updateNodeCustomData(id, { maxWidth: parseInt(e.target.value) })}
+                            style={{ width: '100%' }}
+                        />
+                        <span>{customData.maxWidth || 1200}px</span>
                     </div>
 
                     <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>

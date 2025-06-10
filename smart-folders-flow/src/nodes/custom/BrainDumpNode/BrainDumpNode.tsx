@@ -41,24 +41,21 @@ const BrainDumpNode: React.FC<NodeProps> = ({ id, data }) => {
 
     const handleStartCountdown = useCallback(() => {
         updateNodeCustomData(id, {
-            ...customData,
             isCountingDown: true,
             startTime: Date.now()
         });
-    }, [id, customData, updateNodeCustomData]);
+    }, [id, updateNodeCustomData]);
 
     const handleStopCountdown = useCallback(() => {
         updateNodeCustomData(id, {
-            ...customData,
             isCountingDown: false,
             startTime: undefined
         });
         setLocalCountdown(0);
-    }, [id, customData, updateNodeCustomData]);
+    }, [id, updateNodeCustomData]);
 
     const handleCountdownChange = (newCountdown: number) => {
         updateNodeCustomData(id, {
-            ...customData,
             countdownSeconds: newCountdown
         });
     };

@@ -7,5 +7,6 @@ export interface LabelNodeData extends BaseNodeData {
         fontSize: number;
         textColor: string;
         backgroundColor: string;
+        maxWidth: number;
     };
 } 

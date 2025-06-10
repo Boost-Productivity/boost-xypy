@@ -8,6 +8,8 @@ import { NodeTypeConfig, NodeFactory, BaseNodeData } from '../base/BaseNode.type
 import { brainDumpNodeConfig, brainDumpNodeFactory } from './BrainDumpNode';
 import { labelNodeConfig, labelNodeFactory } from './LabelNode';
 import { videoRecorderNodeConfig, videoRecorderNodeFactory } from './VideoRecorderNode';
+import { anthropicNodeConfig, anthropicNodeFactory } from './AnthropicNode';
+import { anthropicAdvancedNodeConfig, anthropicAdvancedNodeFactory } from './AnthropicAdvancedNode';
 
 // Register the base SmartFolderNode
 const smartFolderNodeConfig: NodeTypeConfig = {
@@ -59,6 +61,8 @@ const registerNodes = () => {
     nodeRegistry.register(brainDumpNodeConfig, brainDumpNodeFactory);
     nodeRegistry.register(labelNodeConfig, labelNodeFactory);
     nodeRegistry.register(videoRecorderNodeConfig, videoRecorderNodeFactory);
+    nodeRegistry.register(anthropicNodeConfig, anthropicNodeFactory);
+    nodeRegistry.register(anthropicAdvancedNodeConfig, anthropicAdvancedNodeFactory);
 
     console.log(`✅ Registered ${nodeRegistry.getNodeTypes().length} node types`);
 };
@@ -71,9 +75,13 @@ export {
     brainDumpNodeConfig,
     labelNodeConfig,
     videoRecorderNodeConfig,
+    anthropicNodeConfig,
+    anthropicAdvancedNodeConfig,
     brainDumpNodeFactory,
     labelNodeFactory,
-    videoRecorderNodeFactory
+    videoRecorderNodeFactory,
+    anthropicNodeFactory,
+    anthropicAdvancedNodeFactory
 };
 
 export default nodeRegistry;
