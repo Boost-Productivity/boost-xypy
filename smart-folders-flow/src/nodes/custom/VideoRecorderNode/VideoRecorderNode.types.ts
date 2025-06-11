@@ -10,5 +10,9 @@ export interface VideoRecorderNodeData extends BaseNodeData {
         lastRecordedFile?: string;
         videoQuality: 'low' | 'medium' | 'high';
         autoSaveOnStop: boolean;
+        lastSaveStatus?: 'success' | 'error';
+        lastSaveMessage?: string;
+        lastSaveTime?: number;
+        rotation?: number; // Camera rotation in degrees (0, 90, 180, 270)
     };
 } 

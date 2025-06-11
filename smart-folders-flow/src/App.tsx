@@ -26,6 +26,7 @@ const selector = (state: RFState) => ({
   edges: state.edges,
   selectedNodes: state.selectedNodes,
   selectedEdges: state.selectedEdges,
+  copiedNodes: state.copiedNodes,
   onNodesChange: state.onNodesChange,
   onEdgesChange: state.onEdgesChange,
   onConnect: state.onConnect,
@@ -35,6 +36,8 @@ const selector = (state: RFState) => ({
   deleteEdge: state.deleteEdge,
   deleteSelectedElements: state.deleteSelectedElements,
   executeSelectedNodes: state.executeSelectedNodes,
+  copySelectedNodes: state.copySelectedNodes,
+  pasteNodes: state.pasteNodes,
   isLoading: state.isLoading,
   isSaving: state.isSaving,
   lastSaved: state.lastSaved,
@@ -69,6 +72,7 @@ function FlowComponent() {
     edges,
     selectedNodes,
     selectedEdges,
+    copiedNodes,
     onNodesChange,
     onEdgesChange,
     onConnect,
@@ -78,6 +82,8 @@ function FlowComponent() {
     deleteEdge,
     deleteSelectedElements,
     executeSelectedNodes,
+    copySelectedNodes,
+    pasteNodes,
     isLoading,
     isSaving,
     lastSaved,
@@ -86,9 +92,40 @@ function FlowComponent() {
 
   const [selectedEdge, setSelectedEdge] = useState<string | null>(null);
   const [edgeMenuPosition, setEdgeMenuPosition] = useState<{ x: number; y: number } | null>(null);
-  const [showNodePalette, setShowNodePalette] = useState(false);
+  const [showNodePalette, setShowNodePalette] = useState(true);
+  const [isCollapsed, setIsCollapsed] = useState(true);
+  const [lastMousePosition, setLastMousePosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
   const { screenToFlowPosition } = useReactFlow();
+
+  // Keyboard event handling for copy-paste
+  React.useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const isCtrlCmd = event.ctrlKey || event.metaKey;
+
+      if (isCtrlCmd && event.key === 'c') {
+        event.preventDefault();
+        copySelectedNodes();
+      } else if (isCtrlCmd && event.key === 'v') {
+        event.preventDefault();
+        // Use last mouse position or center of viewport
+        const pastePosition = screenToFlowPosition(lastMousePosition);
+        pasteNodes(pastePosition);
+      }
+    };
+
+    const handleMouseMove = (event: MouseEvent) => {
+      setLastMousePosition({ x: event.clientX, y: event.clientY });
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('mousemove', handleMouseMove);
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('mousemove', handleMouseMove);
+    };
+  }, [copySelectedNodes, pasteNodes, screenToFlowPosition, lastMousePosition]);
 
   const onPaneClick = useCallback(
     (event: React.MouseEvent) => {
@@ -148,6 +185,28 @@ function FlowComponent() {
       return 'Unknown';
     }
   };
+
+  const handleDeleteSelectedWithConfirmation = useCallback(() => {
+    const nodeCount = selectedNodes.length;
+    const edgeCount = selectedEdges.length;
+
+    if (nodeCount === 0 && edgeCount === 0) {
+      return;
+    }
+
+    let confirmMessage = '';
+    if (nodeCount > 0 && edgeCount > 0) {
+      confirmMessage = `Delete ${nodeCount} node${nodeCount > 1 ? 's' : ''} and ${edgeCount} edge${edgeCount > 1 ? 's' : ''}?`;
+    } else if (nodeCount > 0) {
+      confirmMessage = `Delete ${nodeCount} node${nodeCount > 1 ? 's' : ''}?`;
+    } else {
+      confirmMessage = `Delete ${edgeCount} edge${edgeCount > 1 ? 's' : ''}?`;
+    }
+
+    if (window.confirm(confirmMessage + '\n\nThis action cannot be undone.')) {
+      deleteSelectedElements();
+    }
+  }, [selectedNodes.length, selectedEdges.length, deleteSelectedElements]);
 
   if (isLoading) {
     return (
@@ -222,6 +281,26 @@ function FlowComponent() {
               </div>
 
               <button
+                onClick={copySelectedNodes}
+                style={{
+                  background: '#2196f3',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '8px 12px',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  fontWeight: 'bold',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+                title="Copy selected nodes (Ctrl+C / Cmd+C)"
+              >
+                📋 Copy
+              </button>
+
+              <button
                 onClick={executeSelectedNodes}
                 style={{
                   background: '#4caf50',
@@ -242,7 +321,7 @@ function FlowComponent() {
               </button>
 
               <button
-                onClick={deleteSelectedElements}
+                onClick={handleDeleteSelectedWithConfirmation}
                 style={{
                   background: '#f44336',
                   color: 'white',
@@ -260,65 +339,117 @@ function FlowComponent() {
               >
                 🗑️ Delete Selected
               </button>
+
+              {copiedNodes.length > 0 && (
+                <button
+                  onClick={() => {
+                    const pastePosition = screenToFlowPosition(lastMousePosition);
+                    pasteNodes(pastePosition);
+                  }}
+                  style={{
+                    background: '#ff9800',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    padding: '8px 12px',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    fontWeight: 'bold',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                  title={`Paste ${copiedNodes.length} node${copiedNodes.length > 1 ? 's' : ''} (Ctrl+V / Cmd+V)`}
+                >
+                  📌 Paste ({copiedNodes.length})
+                </button>
+              )}
             </div>
           </Panel>
         )}
 
         {/* Main Control Panel */}
         <Panel position="top-left" className="panel">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-            <h2 style={{ margin: 0 }}>Smart Folders Flow</h2>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: isCollapsed ? '0' : '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h2 style={{ margin: 0 }}>Boost Smart Notes</h2>
+              <button
+                onClick={() => setIsCollapsed(!isCollapsed)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  padding: '2px 4px',
+                  borderRadius: '4px',
+                  color: 'var(--text-primary)',
+                  display: 'flex',
+                  alignItems: 'center'
+                }}
+                title={isCollapsed ? 'Expand panel' : 'Collapse panel'}
+              >
+                {isCollapsed ? '▶' : '▼'}
+              </button>
+            </div>
             <ThemeToggle />
           </div>
-          <div style={{ fontSize: '13px', lineHeight: '1.4', marginBottom: '12px' }}>
-            <p><strong>Multi-Selection:</strong></p>
-            <p>• <kbd>Shift</kbd> + drag for selection box</p>
-            <p>• <kbd>Cmd/Ctrl</kbd> + click for individual selection</p>
-            <p>• Drag any selected node to move the group</p>
-            <p>• <kbd>Del/Backspace</kbd> to delete selected</p>
-          </div>
-          <p>Double-click to add a basic smart folder</p>
-          <p>Connect folders to create subscriptions</p>
-          <p>Multiple inputs: Connect multiple sources to one target</p>
-          <p>Execute ANY connected node to trigger its subscribers</p>
-          <p>Click on a connection to delete it</p>
-          <p style={{ color: '#28a745', fontWeight: 'bold' }}>✅ Multi-Input System Active!</p>
 
-          <div style={{ marginTop: '12px', fontSize: '12px' }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              color: isSaving ? '#ffc107' : '#28a745'
-            }}>
-              {isSaving ? (
-                <>
-                  <div className="spinner" style={{ width: '12px', height: '12px' }}></div>
-                  Saving...
-                </>
-              ) : (
-                <>
-                  💾 Auto-saved: {formatLastSaved(lastSaved)}
-                </>
-              )}
-            </div>
-            <button
-              onClick={saveFlow}
-              style={{
-                marginTop: '8px',
-                padding: '4px 8px',
-                fontSize: '12px',
-                background: '#0066cc',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer'
-              }}
-              disabled={isSaving}
-            >
-              💾 Save Now
-            </button>
-          </div>
+          {!isCollapsed && (
+            <>
+              <div style={{ fontSize: '13px', lineHeight: '1.4', marginBottom: '12px' }}>
+                <p><strong>Multi-Selection:</strong></p>
+                <p>• <kbd>Shift</kbd> + drag for selection box</p>
+                <p>• <kbd>Cmd/Ctrl</kbd> + click for individual selection</p>
+                <p>• Drag any selected node to move the group</p>
+                <p>• <kbd>Del/Backspace</kbd> to delete selected</p>
+                <p><strong>Copy-Paste:</strong></p>
+                <p>• <kbd>Ctrl/Cmd+C</kbd> to copy selected nodes</p>
+                <p>• <kbd>Ctrl/Cmd+V</kbd> to paste at cursor position</p>
+              </div>
+              <p>Double-click to add a basic smart folder</p>
+              <p>Connect folders to create subscriptions</p>
+              <p>Multiple inputs: Connect multiple sources to one target</p>
+              <p>Execute ANY connected node to trigger its subscribers</p>
+              <p>Click on a connection to delete it</p>
+              <p style={{ color: '#28a745', fontWeight: 'bold' }}>✅ Multi-Input System Active!</p>
+
+              <div style={{ marginTop: '12px', fontSize: '12px' }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  color: isSaving ? '#ffc107' : '#28a745'
+                }}>
+                  {isSaving ? (
+                    <>
+                      <div className="spinner" style={{ width: '12px', height: '12px' }}></div>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      💾 Auto-saved: {formatLastSaved(lastSaved)}
+                    </>
+                  )}
+                </div>
+                <button
+                  onClick={saveFlow}
+                  style={{
+                    marginTop: '8px',
+                    padding: '4px 8px',
+                    fontSize: '12px',
+                    background: '#0066cc',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
+                  disabled={isSaving}
+                >
+                  💾 Save Now
+                </button>
+              </div>
+            </>
+          )}
         </Panel>
 
         {/* Node Palette Panel */}

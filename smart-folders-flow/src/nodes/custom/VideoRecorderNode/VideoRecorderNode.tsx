@@ -8,7 +8,10 @@ const VideoRecorderNode: React.FC<NodeProps> = ({ id, data }) => {
     const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
     const [localDuration, setLocalDuration] = useState(0);
     const [isEditing, setIsEditing] = useState(false);
+    const [editingDirectory, setEditingDirectory] = useState(false);
+    const [localDirectory, setLocalDirectory] = useState('');
     const [isRecording, setIsRecording] = useState(false);
+    const [showSavedNotification, setShowSavedNotification] = useState(false);
 
     const videoRef = useRef<HTMLVideoElement>(null);
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -29,6 +32,7 @@ const VideoRecorderNode: React.FC<NodeProps> = ({ id, data }) => {
         outputDirectory: './recordings',
         videoQuality: 'medium',
         autoSaveOnStop: true,
+        rotation: 0,
     };
 
     // Initialize webcam
@@ -95,14 +99,6 @@ const VideoRecorderNode: React.FC<NodeProps> = ({ id, data }) => {
             const result = await response.json();
             const serverFilePath = result.filePath;
 
-            // Update node with server file path
-            updateNodeCustomData(id, {
-                customData: {
-                    ...customData,
-                    lastRecordedFile: serverFilePath
-                }
-            });
-
             // Update manual input with server file path for downstream processing
             updateSmartFolderManualInput(id, serverFilePath);
 
@@ -112,10 +108,31 @@ const VideoRecorderNode: React.FC<NodeProps> = ({ id, data }) => {
             }
 
             console.log(`📹 Video saved to server: ${serverFilePath}`);
-            alert(`✅ Video saved successfully to: ${serverFilePath}`);
+
+            // Update node with success status
+            updateNodeCustomData(id, {
+                lastRecordedFile: serverFilePath,
+                lastSaveStatus: 'success',
+                lastSaveMessage: `Video saved: ${serverFilePath.split('/').pop()}`,
+                lastSaveTime: Date.now()
+            });
+
+            // Show temporary notification
+            setShowSavedNotification(true);
+            setTimeout(() => {
+                setShowSavedNotification(false);
+            }, 3000);
 
         } catch (error) {
             console.error('Video upload failed:', error);
+
+            // Update node with error status  
+            updateNodeCustomData(id, {
+                lastSaveStatus: 'error',
+                lastSaveMessage: `Upload failed: ${error instanceof Error ? error.message : String(error)}`,
+                lastSaveTime: Date.now()
+            });
+
             alert(`❌ Upload failed: ${error instanceof Error ? error.message : String(error)}`);
         }
     }, [customData, id, updateNodeCustomData, updateSmartFolderManualInput, executeSmartFolder]);
@@ -166,12 +183,9 @@ const VideoRecorderNode: React.FC<NodeProps> = ({ id, data }) => {
 
             // Update state
             updateNodeCustomData(id, {
-                customData: {
-                    ...customData,
-                    isRecording: true,
-                    recordingStartTime: Date.now(),
-                    recordingDuration: 0
-                }
+                isRecording: true,
+                recordingStartTime: Date.now(),
+                recordingDuration: 0
             });
 
             // Start duration timer
@@ -197,24 +211,13 @@ const VideoRecorderNode: React.FC<NodeProps> = ({ id, data }) => {
         }
 
         updateNodeCustomData(id, {
-            customData: {
-                ...customData,
-                isRecording: false,
-                recordingDuration: localDuration
-            }
+            isRecording: false,
+            recordingDuration: localDuration
         });
 
         setMediaRecorder(null);
+        setLocalDuration(0); // Reset timer for next recording
     }, [mediaRecorder, localDuration, customData, id, updateNodeCustomData]);
-
-    // Manual save (for chunks that weren't auto-saved)
-    const handleManualSave = useCallback(() => {
-        if (chunksRef.current.length === 0) {
-            alert('No recording to save');
-            return;
-        }
-        saveVideoFromChunks([...chunksRef.current]);
-    }, [saveVideoFromChunks]);
 
     // Initialize camera on mount
     useEffect(() => {
@@ -234,25 +237,43 @@ const VideoRecorderNode: React.FC<NodeProps> = ({ id, data }) => {
         }
     };
 
-    const handleDirectoryChange = (newDir: string) => {
-        updateNodeCustomData(id, {
-            customData: {
-                ...customData,
-                outputDirectory: newDir
-            }
-        });
-    };
-
     const handleQualityChange = (quality: 'low' | 'medium' | 'high') => {
         updateNodeCustomData(id, {
-            customData: {
-                ...customData,
-                videoQuality: quality
-            }
+            videoQuality: quality
         });
         // Reinitialize camera with new quality
         cleanupCamera();
         setTimeout(initializeCamera, 100);
+    };
+
+    const handleDirectoryFocus = () => {
+        setEditingDirectory(true);
+        setLocalDirectory(customData.outputDirectory);
+    };
+
+    const handleDirectoryBlur = (value: string) => {
+        setEditingDirectory(false);
+        updateNodeCustomData(id, {
+            outputDirectory: value
+        });
+    };
+
+    const handleLocalDirectoryChange = (value: string) => {
+        setLocalDirectory(value);
+    };
+
+    const handleRotateClockwise = () => {
+        const newRotation = ((customData.rotation || 0) + 90) % 360;
+        updateNodeCustomData(id, {
+            rotation: newRotation
+        });
+    };
+
+    const handleRotateCounterClockwise = () => {
+        const newRotation = ((customData.rotation || 0) - 90 + 360) % 360;
+        updateNodeCustomData(id, {
+            rotation: newRotation
+        });
     };
 
     const formatDuration = (seconds: number) => {
@@ -334,20 +355,76 @@ const VideoRecorderNode: React.FC<NodeProps> = ({ id, data }) => {
 
             {/* Video Preview */}
             <div style={{ marginBottom: '12px' }}>
-                <video
-                    ref={videoRef}
-                    autoPlay
-                    muted
-                    playsInline
-                    style={{
-                        width: '100%',
-                        maxWidth: '280px',
-                        height: '160px',
-                        background: '#000',
-                        borderRadius: '8px',
-                        border: isRecording ? '2px solid #ff4444' : '2px solid #666'
-                    }}
-                />
+                {/* Rotation Controls */}
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginBottom: '8px' }}>
+                    <button
+                        onClick={handleRotateCounterClockwise}
+                        style={{
+                            background: 'rgba(255,255,255,0.2)',
+                            color: 'white',
+                            border: '1px solid rgba(255,255,255,0.3)',
+                            borderRadius: '4px',
+                            padding: '6px',
+                            cursor: 'pointer',
+                            fontSize: '16px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: '32px',
+                            height: '32px'
+                        }}
+                        title="Rotate counterclockwise"
+                    >
+                        ↺
+                    </button>
+                    <button
+                        onClick={handleRotateClockwise}
+                        style={{
+                            background: 'rgba(255,255,255,0.2)',
+                            color: 'white',
+                            border: '1px solid rgba(255,255,255,0.3)',
+                            borderRadius: '4px',
+                            padding: '6px',
+                            cursor: 'pointer',
+                            fontSize: '16px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: '32px',
+                            height: '32px'
+                        }}
+                        title="Rotate clockwise"
+                    >
+                        ↻
+                    </button>
+                </div>
+
+                {/* Video Container with dynamic sizing */}
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    // Adjust container size based on rotation
+                    height: (customData.rotation === 90 || customData.rotation === 270) ? '280px' : '160px',
+                    width: '100%',
+                    maxWidth: '280px',
+                    margin: '0 auto'
+                }}>
+                    <video
+                        ref={videoRef}
+                        autoPlay
+                        muted
+                        playsInline
+                        style={{
+                            width: '280px',
+                            height: '160px',
+                            background: '#000',
+                            border: isRecording ? '2px solid #ff4444' : '2px solid #666',
+                            transform: `rotate(${customData.rotation || 0}deg)`,
+                            transition: 'transform 0.3s ease'
+                        }}
+                    />
+                </div>
             </div>
 
             {/* Recording Controls */}
@@ -383,23 +460,6 @@ const VideoRecorderNode: React.FC<NodeProps> = ({ id, data }) => {
                         ⏹ Stop Recording
                     </button>
                 )}
-
-                {chunksRef.current.length > 0 && !isRecording && (
-                    <button
-                        onClick={handleManualSave}
-                        style={{
-                            background: '#4caf50',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '6px',
-                            padding: '8px 16px',
-                            cursor: 'pointer',
-                            fontWeight: 'bold'
-                        }}
-                    >
-                        💾 Save & Process
-                    </button>
-                )}
             </div>
 
             {/* Recording Status */}
@@ -419,19 +479,48 @@ const VideoRecorderNode: React.FC<NodeProps> = ({ id, data }) => {
             <div style={{ fontSize: '12px', marginBottom: '8px' }}>
                 <div style={{ marginBottom: '6px' }}>
                     <label style={{ display: 'block', marginBottom: '2px' }}>Output Directory:</label>
-                    <input
-                        type="text"
-                        value={customData.outputDirectory}
-                        onChange={(e) => handleDirectoryChange(e.target.value)}
-                        style={{
-                            width: '100%',
-                            padding: '4px 6px',
-                            borderRadius: '4px',
-                            border: 'none',
-                            fontSize: '11px'
-                        }}
-                        placeholder="./recordings"
-                    />
+                    {editingDirectory ? (
+                        <input
+                            type="text"
+                            value={localDirectory}
+                            onChange={(e) => handleLocalDirectoryChange(e.target.value)}
+                            onBlur={(e) => handleDirectoryBlur(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    handleDirectoryBlur(e.currentTarget.value);
+                                }
+                            }}
+                            autoFocus
+                            style={{
+                                width: '100%',
+                                padding: '4px 6px',
+                                borderRadius: '4px',
+                                border: 'none',
+                                fontSize: '11px',
+                                color: '#000'
+                            }}
+                            placeholder="./recordings"
+                        />
+                    ) : (
+                        <div
+                            onClick={handleDirectoryFocus}
+                            style={{
+                                width: '100%',
+                                padding: '4px 6px',
+                                borderRadius: '4px',
+                                border: 'none',
+                                fontSize: '11px',
+                                color: '#000',
+                                background: '#fff',
+                                cursor: 'text',
+                                minHeight: '15px',
+                                display: 'flex',
+                                alignItems: 'center'
+                            }}
+                        >
+                            {customData.outputDirectory || './recordings'}
+                        </div>
+                    )}
                 </div>
 
                 <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
@@ -467,18 +556,77 @@ const VideoRecorderNode: React.FC<NodeProps> = ({ id, data }) => {
                 </div>
             )}
 
-            {/* Last Recorded File */}
-            {customData.lastRecordedFile && (
+            {/* Status Messages */}
+            {customData.lastSaveStatus === 'success' && customData.lastSaveMessage && (
                 <div style={{
-                    fontSize: '10px',
-                    opacity: 0.8,
-                    wordBreak: 'break-all',
                     marginTop: '8px',
-                    padding: '4px',
-                    background: 'rgba(0,0,0,0.2)',
-                    borderRadius: '4px'
+                    padding: '8px',
+                    background: 'rgba(76, 175, 80, 0.2)',
+                    border: '1px solid rgba(76, 175, 80, 0.4)',
+                    borderRadius: '6px',
+                    textAlign: 'center',
+                    fontSize: '11px',
+                    fontWeight: 'bold',
+                    color: '#c8e6c9'
                 }}>
-                    📁 Last: {customData.lastRecordedFile}
+                    ✅ {customData.lastSaveMessage}
+                    {customData.lastSaveTime && (
+                        <div style={{
+                            fontSize: '9px',
+                            opacity: 0.7,
+                            marginTop: '2px',
+                            fontWeight: 'normal'
+                        }}>
+                            {new Date(customData.lastSaveTime).toLocaleTimeString()}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {customData.lastSaveStatus === 'error' && customData.lastSaveMessage && (
+                <div style={{
+                    marginTop: '8px',
+                    padding: '8px',
+                    background: 'rgba(244, 67, 54, 0.2)',
+                    border: '1px solid rgba(244, 67, 54, 0.4)',
+                    borderRadius: '6px',
+                    textAlign: 'center',
+                    fontSize: '11px',
+                    fontWeight: 'bold',
+                    color: '#ffcdd2'
+                }}>
+                    ❌ {customData.lastSaveMessage}
+                    {customData.lastSaveTime && (
+                        <div style={{
+                            fontSize: '9px',
+                            opacity: 0.7,
+                            marginTop: '2px',
+                            fontWeight: 'normal'
+                        }}>
+                            {new Date(customData.lastSaveTime).toLocaleTimeString()}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Temporary Save Notification */}
+            {showSavedNotification && (
+                <div style={{
+                    position: 'absolute',
+                    bottom: '-40px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    background: '#4caf50',
+                    color: 'white',
+                    padding: '8px 16px',
+                    borderRadius: '20px',
+                    fontSize: '12px',
+                    fontWeight: 'bold',
+                    boxShadow: '0 4px 12px rgba(76, 175, 80, 0.4)',
+                    animation: 'fadeInOut 3s ease-in-out',
+                    zIndex: 1000
+                }}>
+                    💾 Saved!
                 </div>
             )}
         </div>

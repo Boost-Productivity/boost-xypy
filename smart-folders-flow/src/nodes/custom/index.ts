@@ -7,9 +7,13 @@ import { NodeTypeConfig, NodeFactory, BaseNodeData } from '../base/BaseNode.type
 // Import custom nodes
 import { brainDumpNodeConfig, brainDumpNodeFactory } from './BrainDumpNode';
 import { labelNodeConfig, labelNodeFactory } from './LabelNode';
+import { labelMakerNodeConfig, labelMakerNodeFactory } from './LabelMakerNode';
 import { videoRecorderNodeConfig, videoRecorderNodeFactory } from './VideoRecorderNode';
+import { loadVideoNodeConfig, loadVideoNodeFactory } from './LoadVideoNode';
+import { loadAudioNodeConfig, loadAudioNodeFactory } from './LoadAudioNode';
 import { anthropicNodeConfig, anthropicNodeFactory } from './AnthropicNode';
 import { anthropicAdvancedNodeConfig, anthropicAdvancedNodeFactory } from './AnthropicAdvancedNode';
+import { timerNodeConfig, timerNodeFactory } from './TimerNode';
 
 // Register the base SmartFolderNode
 const smartFolderNodeConfig: NodeTypeConfig = {
@@ -60,9 +64,13 @@ const registerNodes = () => {
     // Register custom nodes
     nodeRegistry.register(brainDumpNodeConfig, brainDumpNodeFactory);
     nodeRegistry.register(labelNodeConfig, labelNodeFactory);
+    nodeRegistry.register(labelMakerNodeConfig, labelMakerNodeFactory);
     nodeRegistry.register(videoRecorderNodeConfig, videoRecorderNodeFactory);
+    nodeRegistry.register(loadVideoNodeConfig, loadVideoNodeFactory);
+    nodeRegistry.register(loadAudioNodeConfig, loadAudioNodeFactory);
     nodeRegistry.register(anthropicNodeConfig, anthropicNodeFactory);
     nodeRegistry.register(anthropicAdvancedNodeConfig, anthropicAdvancedNodeFactory);
+    nodeRegistry.register(timerNodeConfig, timerNodeFactory);
 
     console.log(`✅ Registered ${nodeRegistry.getNodeTypes().length} node types`);
 };
@@ -74,14 +82,22 @@ registerNodes();
 export {
     brainDumpNodeConfig,
     labelNodeConfig,
+    labelMakerNodeConfig,
     videoRecorderNodeConfig,
+    loadVideoNodeConfig,
+    loadAudioNodeConfig,
     anthropicNodeConfig,
     anthropicAdvancedNodeConfig,
+    timerNodeConfig,
     brainDumpNodeFactory,
     labelNodeFactory,
+    labelMakerNodeFactory,
     videoRecorderNodeFactory,
+    loadVideoNodeFactory,
+    loadAudioNodeFactory,
     anthropicNodeFactory,
-    anthropicAdvancedNodeFactory
+    anthropicAdvancedNodeFactory,
+    timerNodeFactory
 };
 
 export default nodeRegistry;

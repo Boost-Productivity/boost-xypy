@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 import sys
@@ -10,6 +10,8 @@ import os
 import threading
 import tempfile
 import time
+import uuid
+import glob
 from executor import execute_python_function, register_session_for_cancellation
 from storage import save_flow, load_flow, list_flows
 
@@ -416,6 +418,166 @@ async def read_execution_log(log_file_id: str, last_position: int = 0):
         raise HTTPException(
             status_code=500,
             detail=f"Failed to read log: {str(e)}"
+        )
+
+@app.post("/api/list-videos")
+async def list_videos(request: dict):
+    """
+    List video files in the specified directory path
+    """
+    try:
+        path = request.get("path", "").strip()
+        node_id = request.get("nodeId", "")
+        
+        if not path:
+            raise HTTPException(status_code=400, detail="Path is required")
+        
+        # Handle both file and directory paths
+        if os.path.isfile(path):
+            # If it's a single file, check if it's a video
+            if path.lower().endswith(('.mp4', '.avi', '.mov', '.webm', '.mkv', '.wmv', '.flv')):
+                return {"videos": [path]}
+            else:
+                return {"videos": []}
+        
+        elif os.path.isdir(path):
+            # If it's a directory, find all video files
+            video_extensions = ['*.mp4', '*.avi', '*.mov', '*.webm', '*.mkv', '*.wmv', '*.flv']
+            video_files = []
+            
+            for extension in video_extensions:
+                pattern = os.path.join(path, '**', extension)
+                video_files.extend(glob.glob(pattern, recursive=True))
+                # Also check current directory
+                pattern = os.path.join(path, extension)
+                video_files.extend(glob.glob(pattern))
+            
+            # Remove duplicates and sort
+            video_files = sorted(list(set(video_files)))
+            
+            return {"videos": video_files}
+        
+        else:
+            raise HTTPException(status_code=404, detail=f"Path not found: {path}")
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to list videos: {str(e)}"
+        )
+
+@app.get("/api/serve-video")
+async def serve_video(path: str):
+    """
+    Serve a video file for playback
+    """
+    try:
+        if not path:
+            raise HTTPException(status_code=400, detail="Path parameter is required")
+        
+        # Validate the file exists
+        if not os.path.exists(path):
+            raise HTTPException(status_code=404, detail=f"Video file not found: {path}")
+        
+        # Validate it's a video file
+        if not path.lower().endswith(('.mp4', '.avi', '.mov', '.webm', '.mkv', '.wmv', '.flv')):
+            raise HTTPException(status_code=400, detail="File is not a supported video format")
+        
+        # Return the video file
+        return FileResponse(
+            path=path,
+            media_type='video/mp4',  # Browser will handle different formats
+            filename=os.path.basename(path)
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to serve video: {str(e)}"
+        )
+
+@app.post("/api/list-audios")
+async def list_audios(request: dict):
+    """
+    List audio files in the specified directory path
+    """
+    try:
+        path = request.get("path", "").strip()
+        node_id = request.get("nodeId", "")
+        
+        if not path:
+            raise HTTPException(status_code=400, detail="Path is required")
+        
+        # Handle both file and directory paths
+        if os.path.isfile(path):
+            # If it's a single file, check if it's an audio file
+            if path.lower().endswith(('.mp3', '.wav', '.ogg', '.m4a', '.aac', '.flac', '.wma', '.opus')):
+                return {"audios": [path]}
+            else:
+                return {"audios": []}
+        
+        elif os.path.isdir(path):
+            # If it's a directory, find all audio files
+            audio_extensions = ['*.mp3', '*.wav', '*.ogg', '*.m4a', '*.aac', '*.flac', '*.wma', '*.opus']
+            audio_files = []
+            
+            for extension in audio_extensions:
+                pattern = os.path.join(path, '**', extension)
+                audio_files.extend(glob.glob(pattern, recursive=True))
+                # Also check current directory
+                pattern = os.path.join(path, extension)
+                audio_files.extend(glob.glob(pattern))
+            
+            # Remove duplicates and sort
+            audio_files = sorted(list(set(audio_files)))
+            
+            return {"audios": audio_files}
+        
+        else:
+            raise HTTPException(status_code=404, detail=f"Path not found: {path}")
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to list audios: {str(e)}"
+        )
+
+@app.get("/api/serve-audio")
+async def serve_audio(path: str):
+    """
+    Serve an audio file for playback
+    """
+    try:
+        if not path:
+            raise HTTPException(status_code=400, detail="Path parameter is required")
+        
+        # Validate the file exists
+        if not os.path.exists(path):
+            raise HTTPException(status_code=404, detail=f"Audio file not found: {path}")
+        
+        # Validate it's an audio file
+        if not path.lower().endswith(('.mp3', '.wav', '.ogg', '.m4a', '.aac', '.flac', '.wma', '.opus')):
+            raise HTTPException(status_code=400, detail="File is not a supported audio format")
+        
+        # Return the audio file
+        return FileResponse(
+            path=path,
+            media_type='audio/mpeg',  # Browser will handle different formats
+            filename=os.path.basename(path)
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to serve audio: {str(e)}"
         )
 
 if __name__ == "__main__":

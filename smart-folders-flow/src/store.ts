@@ -23,6 +23,7 @@ export interface RFState {
     edges: Edge[];
     selectedNodes: Node[];
     selectedEdges: Edge[];
+    copiedNodes: Node[]; // Store for copied nodes
     onNodesChange: OnNodesChange;
     onEdgesChange: OnEdgesChange;
     onConnect: (connection: Connection) => void;
@@ -34,6 +35,8 @@ export interface RFState {
     deleteSelectedElements: () => void;
     executeSmartFolder: (nodeId: string, inputs?: Record<string, any>) => void;
     executeSelectedNodes: () => void;
+    copySelectedNodes: () => void;
+    pasteNodes: (mousePosition?: { x: number; y: number }) => void;
     cancelExecution: (nodeId: string) => void;
     updateSmartFolderFunction: (nodeId: string, pythonFunction: string) => void;
     updateSmartFolderLabel: (nodeId: string, label: string) => void;
@@ -250,6 +253,7 @@ const useStore = create<RFState>((set, get) => ({
     edges: initialEdges,
     selectedNodes: [],
     selectedEdges: [],
+    copiedNodes: [],
     isLoading: false,
     isSaving: false,
     lastSaved: null,
@@ -814,6 +818,77 @@ const useStore = create<RFState>((set, get) => ({
                 ),
             });
         }
+    },
+
+    copySelectedNodes: () => {
+        const { selectedNodes } = get();
+
+        if (selectedNodes.length === 0) {
+            console.log('No nodes selected to copy');
+            return;
+        }
+
+        set({
+            copiedNodes: [...selectedNodes], // Deep copy
+        });
+
+        console.log(`📋 Copied ${selectedNodes.length} node${selectedNodes.length > 1 ? 's' : ''}`);
+    },
+
+    pasteNodes: (mousePosition) => {
+        const { copiedNodes, nodes } = get();
+
+        if (copiedNodes.length === 0) {
+            console.log('No nodes to paste');
+            return;
+        }
+
+        // Calculate center of copied nodes for relative positioning
+        const minX = Math.min(...copiedNodes.map(n => n.position.x));
+        const minY = Math.min(...copiedNodes.map(n => n.position.y));
+
+        // Default offset position if no mouse position provided
+        const pasteOffset = { x: minX + 50, y: minY + 50 };
+        const targetPosition = mousePosition || pasteOffset;
+
+        // Generate new nodes with unique IDs and relative positioning
+        const timestamp = Date.now();
+        const newNodes = copiedNodes.map((node, index) => {
+            const relativeX = node.position.x - minX;
+            const relativeY = node.position.y - minY;
+
+            return {
+                ...node,
+                id: `${timestamp}_${index}`, // Unique ID for each pasted node
+                position: {
+                    x: targetPosition.x + relativeX,
+                    y: targetPosition.y + relativeY,
+                },
+                data: {
+                    ...node.data,
+                    // Update label to indicate it's a copy
+                    label: `${node.data.label} (Copy)`,
+                    // Reset execution state for pasted nodes
+                    isExecuting: false,
+                    lastOutput: '',
+                    streamingLogs: '',
+                    inputs: {}, // Clear connected inputs for pasted nodes
+                },
+            };
+        });
+
+        set({
+            nodes: [...nodes, ...newNodes],
+            selectedNodes: newNodes, // Select the newly pasted nodes
+        });
+
+        console.log(`📌 Pasted ${newNodes.length} node${newNodes.length > 1 ? 's' : ''}`);
+
+        // Auto-save after 2 seconds of no changes
+        if (saveTimeout) clearTimeout(saveTimeout);
+        saveTimeout = setTimeout(() => {
+            get().saveFlow();
+        }, 2000);
     },
 }));
 
