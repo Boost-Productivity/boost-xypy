@@ -103,14 +103,31 @@ function FlowComponent() {
     const handleKeyDown = (event: KeyboardEvent) => {
       const isCtrlCmd = event.ctrlKey || event.metaKey;
 
-      if (isCtrlCmd && event.key === 'c') {
-        event.preventDefault();
-        copySelectedNodes();
-      } else if (isCtrlCmd && event.key === 'v') {
-        event.preventDefault();
-        // Use last mouse position or center of viewport
-        const pastePosition = screenToFlowPosition(lastMousePosition);
-        pasteNodes(pastePosition);
+      // Check if the user is currently interacting with a text input
+      const activeElement = document.activeElement;
+      const isTextInput = activeElement && (
+        activeElement.tagName === 'INPUT' ||
+        activeElement.tagName === 'TEXTAREA' ||
+        (activeElement as HTMLElement).isContentEditable ||
+        activeElement.getAttribute('contenteditable') === 'true'
+      );
+
+      // Only handle node-level copy/paste if not in a text input context
+      if (isCtrlCmd && event.key === 'c' && !isTextInput) {
+        // Only prevent default and handle node copy if nodes are actually selected
+        if (selectedNodes.length > 0) {
+          event.preventDefault();
+          copySelectedNodes();
+        }
+        // If no nodes selected, let the browser handle normal text copy
+      } else if (isCtrlCmd && event.key === 'v' && !isTextInput) {
+        // Only prevent default and handle node paste if we have nodes to paste
+        if (copiedNodes.length > 0) {
+          event.preventDefault();
+          const pastePosition = screenToFlowPosition(lastMousePosition);
+          pasteNodes(pastePosition);
+        }
+        // If no nodes to paste, let the browser handle normal text paste
       }
     };
 
@@ -125,7 +142,7 @@ function FlowComponent() {
       document.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('mousemove', handleMouseMove);
     };
-  }, [copySelectedNodes, pasteNodes, screenToFlowPosition, lastMousePosition]);
+  }, [copySelectedNodes, pasteNodes, screenToFlowPosition, lastMousePosition, selectedNodes.length, copiedNodes.length]);
 
   const onPaneClick = useCallback(
     (event: React.MouseEvent) => {
@@ -370,28 +387,54 @@ function FlowComponent() {
 
         {/* Main Control Panel */}
         <Panel position="top-left" className="panel">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: isCollapsed ? '0' : '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <h2 style={{ margin: 0 }}>Boost Smart Notes</h2>
-              <button
-                onClick={() => setIsCollapsed(!isCollapsed)}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontSize: '12px',
-                  padding: '2px 4px',
-                  borderRadius: '4px',
-                  color: 'var(--text-primary)',
-                  display: 'flex',
-                  alignItems: 'center'
-                }}
-                title={isCollapsed ? 'Expand panel' : 'Collapse panel'}
-              >
-                {isCollapsed ? '▶' : '▼'}
-              </button>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '16px',
+            marginBottom: isCollapsed ? '0' : '12px'
+          }}>
+            <h2 style={{ margin: 0, fontSize: '18px' }}>Boost Smart Notes</h2>
+            <button
+              onClick={() => setIsCollapsed(!isCollapsed)}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '14px',
+                padding: '4px',
+                borderRadius: '4px',
+                color: 'var(--text-primary)',
+                display: 'flex',
+                alignItems: 'center',
+                height: '24px',
+                width: '24px',
+                justifyContent: 'center'
+              }}
+              title={isCollapsed ? 'Expand panel' : 'Collapse panel'}
+            >
+              {isCollapsed ? '▶' : '▼'}
+            </button>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              color: isSaving ? '#ffc107' : '#28a745',
+              fontSize: '12px'
+            }}>
+              {isSaving ? (
+                <>
+                  <div className="spinner" style={{ width: '12px', height: '12px' }}></div>
+                  Saving...
+                </>
+              ) : (
+                <>
+                  💾 {formatLastSaved(lastSaved)}
+                </>
+              )}
             </div>
-            <ThemeToggle />
+            <div style={{ marginLeft: 'auto' }}>
+              <ThemeToggle />
+            </div>
           </div>
 
           {!isCollapsed && (
@@ -413,28 +456,10 @@ function FlowComponent() {
               <p>Click on a connection to delete it</p>
               <p style={{ color: '#28a745', fontWeight: 'bold' }}>✅ Multi-Input System Active!</p>
 
-              <div style={{ marginTop: '12px', fontSize: '12px' }}>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  color: isSaving ? '#ffc107' : '#28a745'
-                }}>
-                  {isSaving ? (
-                    <>
-                      <div className="spinner" style={{ width: '12px', height: '12px' }}></div>
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      💾 Auto-saved: {formatLastSaved(lastSaved)}
-                    </>
-                  )}
-                </div>
+              <div style={{ marginTop: '12px' }}>
                 <button
                   onClick={saveFlow}
                   style={{
-                    marginTop: '8px',
                     padding: '4px 8px',
                     fontSize: '12px',
                     background: '#0066cc',

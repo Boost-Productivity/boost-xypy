@@ -815,6 +815,127 @@ async def check_chunks(node_id: str):
     
     return {"newChunks": completed_chunks}
 
+@app.post("/api/concatenate-recent-videos")
+async def concatenate_recent_videos(request: dict):
+    """
+    Concatenate MP4 files from the last 5 minutes based on creation date
+    """
+    try:
+        input_directory = request.get("input_directory", "").strip()
+        output_directory = request.get("output_directory", "").strip()
+        node_id = request.get("nodeId", "")
+        
+        if not input_directory:
+            raise HTTPException(status_code=400, detail="Input directory is required")
+        
+        if not output_directory:
+            raise HTTPException(status_code=400, detail="Output directory is required")
+        
+        if not os.path.exists(input_directory):
+            raise HTTPException(status_code=404, detail=f"Input directory not found: {input_directory}")
+        
+        # Create output directory if it doesn't exist
+        os.makedirs(output_directory, exist_ok=True)
+        
+        # Find MP4 files created in the last 5 minutes
+        current_time = time.time()
+        five_minutes_ago = current_time - (5 * 60)  # 5 minutes in seconds
+        
+        mp4_files = []
+        for root, dirs, files in os.walk(input_directory):
+            for file in files:
+                if file.lower().endswith('.mp4'):
+                    file_path = os.path.join(root, file)
+                    try:
+                        # Get file creation time (or modification time on some systems)
+                        file_stat = os.stat(file_path)
+                        creation_time = file_stat.st_ctime
+                        
+                        if creation_time >= five_minutes_ago:
+                            mp4_files.append({
+                                'path': file_path,
+                                'creation_time': creation_time
+                            })
+                    except OSError:
+                        continue
+        
+        if not mp4_files:
+            return {
+                "success": False,
+                "message": "No MP4 files found created in the last 5 minutes"
+            }
+        
+        # Sort files by creation time (oldest first)
+        mp4_files.sort(key=lambda x: x['creation_time'])
+        
+        # Generate UUID filename for output
+        output_filename = f"{str(uuid.uuid4())}.mp4"
+        output_path = os.path.join(output_directory, output_filename)
+        
+        # Create temporary file list for ffmpeg concat
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as concat_file:
+            for file_info in mp4_files:
+                # Escape single quotes and wrap in single quotes for ffmpeg
+                escaped_path = file_info['path'].replace("'", "'\"'\"'")
+                concat_file.write(f"file '{escaped_path}'\n")
+            concat_file_path = concat_file.name
+        
+        try:
+            # Build ffmpeg concat command
+            ffmpeg_cmd = [
+                "ffmpeg",
+                "-y",  # Overwrite output file
+                "-f", "concat",
+                "-safe", "0",
+                "-i", concat_file_path,
+                "-c", "copy",  # Copy streams without re-encoding for speed
+                output_path
+            ]
+            
+            # Execute ffmpeg command
+            result = subprocess.run(
+                ffmpeg_cmd,
+                capture_output=True,
+                text=True,
+                timeout=300  # 5 minute timeout
+            )
+            
+            if result.returncode != 0:
+                raise Exception(f"ffmpeg failed: {result.stderr}")
+            
+            # Verify output file was created
+            if not os.path.exists(output_path):
+                raise Exception("Output file was not created")
+            
+            file_size = os.path.getsize(output_path)
+            
+            return {
+                "success": True,
+                "output_filename": output_filename,
+                "output_path": output_path,
+                "file_size": file_size,
+                "files_concatenated": len(mp4_files),
+                "input_files": [f['path'] for f in mp4_files],
+                "message": f"Successfully concatenated {len(mp4_files)} MP4 files"
+            }
+            
+        finally:
+            # Clean up temporary concat file
+            try:
+                os.unlink(concat_file_path)
+            except:
+                pass
+                
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=408, detail="Video concatenation timed out")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to concatenate videos: {str(e)}"
+        )
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True) 

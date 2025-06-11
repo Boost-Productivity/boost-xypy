@@ -17,6 +17,12 @@ import { timerNodeConfig, timerNodeFactory } from './TimerNode';
 import { ipWebcamNodeConfig, ipWebcamNodeFactory } from './IPWebcamNode';
 import { schedulerNodeConfig, schedulerNodeFactory } from './SchedulerNode';
 import { promptTemplateNodeConfig, promptTemplateNodeFactory } from './PromptTemplateNode';
+import { oldFileFinderNodeConfig, oldFileFinderNodeFactory } from './OldFileFinderNode';
+import { oldFileDeleterNodeConfig, oldFileDeleterNodeFactory } from './OldFileDeleterNode';
+import { directoryNodeConfig, directoryNodeFactory } from './DirectoryNode';
+import { videoConcatenatorNodeConfig, videoConcatenatorNodeFactory } from './VideoConcatenatorNode';
+import { audioExtractorNodeConfig, audioExtractorNodeFactory } from './AudioExtractorNode';
+import { whisperTranscriptionNodeConfig, whisperTranscriptionNodeFactory } from './WhisperTranscriptionNode';
 
 // Register the base SmartFolderNode
 const smartFolderNodeConfig: NodeTypeConfig = {
@@ -77,6 +83,12 @@ const registerNodes = () => {
     nodeRegistry.register(ipWebcamNodeConfig, ipWebcamNodeFactory);
     nodeRegistry.register(schedulerNodeConfig, schedulerNodeFactory);
     nodeRegistry.register(promptTemplateNodeConfig, promptTemplateNodeFactory);
+    nodeRegistry.register(oldFileFinderNodeConfig, oldFileFinderNodeFactory);
+    nodeRegistry.register(oldFileDeleterNodeConfig, oldFileDeleterNodeFactory);
+    nodeRegistry.register(directoryNodeConfig, directoryNodeFactory);
+    nodeRegistry.register(videoConcatenatorNodeConfig, videoConcatenatorNodeFactory);
+    nodeRegistry.register(audioExtractorNodeConfig, audioExtractorNodeFactory);
+    nodeRegistry.register(whisperTranscriptionNodeConfig, whisperTranscriptionNodeFactory);
 
     console.log(`✅ Registered ${nodeRegistry.getNodeTypes().length} node types`);
 };
@@ -98,6 +110,12 @@ export {
     ipWebcamNodeConfig,
     schedulerNodeConfig,
     promptTemplateNodeConfig,
+    oldFileFinderNodeConfig,
+    oldFileDeleterNodeConfig,
+    directoryNodeConfig,
+    videoConcatenatorNodeConfig,
+    audioExtractorNodeConfig,
+    whisperTranscriptionNodeConfig,
     brainDumpNodeFactory,
     labelNodeFactory,
     labelMakerNodeFactory,
@@ -109,7 +127,13 @@ export {
     timerNodeFactory,
     ipWebcamNodeFactory,
     schedulerNodeFactory,
-    promptTemplateNodeFactory
+    promptTemplateNodeFactory,
+    oldFileFinderNodeFactory,
+    oldFileDeleterNodeFactory,
+    directoryNodeFactory,
+    videoConcatenatorNodeFactory,
+    audioExtractorNodeFactory,
+    whisperTranscriptionNodeFactory
 };
 
 export default nodeRegistry;

@@ -3,4 +3,5 @@ uvicorn
 RestrictedPython
 pydantic
 anthropic
-requests 
+requests
+openai-whisper 
