@@ -498,7 +498,14 @@ function FlowComponent() {
           </div>
 
           {showNodePalette && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px',
+              maxHeight: '400px',
+              overflowY: 'auto',
+              paddingRight: '4px'
+            }}>
               {nodeRegistry.getNodeTypes().map((nodeType) => (
                 <button
                   key={nodeType.type}

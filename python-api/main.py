@@ -391,6 +391,86 @@ async def upload_video(
             detail=f"Video upload failed: {str(e)}"
         )
 
+@app.post("/api/upload-file")
+async def upload_file(
+    file: UploadFile = File(...),
+    directory: str = Form(...),
+    nodeId: str = Form(...),
+    allowedExtensions: str = Form(default=""),
+    maxFileSize: int = Form(default=100),  # MB
+    overwriteExisting: bool = Form(default=False)
+):
+    """
+    Upload and save any file to specified server directory with validation
+    """
+    try:
+        # Validate file size (convert MB to bytes)
+        max_size_bytes = maxFileSize * 1024 * 1024
+        file_content = await file.read()
+        
+        if len(file_content) > max_size_bytes:
+            raise HTTPException(
+                status_code=400,
+                detail=f"File size {len(file_content)} bytes exceeds maximum allowed size of {max_size_bytes} bytes ({maxFileSize}MB)"
+            )
+        
+        # Validate file extension if specified
+        if allowedExtensions:
+            allowed_exts = [ext.strip().lower() for ext in allowedExtensions.split(',') if ext.strip()]
+            if allowed_exts:
+                file_ext = os.path.splitext(file.filename or '')[1].lower()
+                if file_ext not in allowed_exts:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"File extension '{file_ext}' not allowed. Allowed extensions: {', '.join(allowed_exts)}"
+                    )
+        
+        # Ensure directory exists
+        os.makedirs(directory, exist_ok=True)
+        
+        # Generate safe filename
+        safe_filename = file.filename or f"file_{int(time.time())}"
+        # Remove any path traversal attempts
+        safe_filename = os.path.basename(safe_filename)
+        
+        # Full file path
+        file_path = os.path.join(directory, safe_filename)
+        
+        # Check if file exists and handle overwrite setting
+        if os.path.exists(file_path) and not overwriteExisting:
+            # Generate unique filename
+            name, ext = os.path.splitext(safe_filename)
+            counter = 1
+            while os.path.exists(file_path):
+                safe_filename = f"{name}_{counter}{ext}"
+                file_path = os.path.join(directory, safe_filename)
+                counter += 1
+        
+        # Save file to server
+        with open(file_path, "wb") as buffer:
+            buffer.write(file_content)
+        
+        # Get absolute path for return
+        abs_file_path = os.path.abspath(file_path)
+        
+        return {
+            "success": True,
+            "filePath": abs_file_path,
+            "filename": safe_filename,
+            "directory": directory,
+            "nodeId": nodeId,
+            "fileSize": len(file_content),
+            "contentType": file.content_type or "application/octet-stream"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"File upload failed: {str(e)}"
+        )
+
 @app.get("/api/logs/{log_file_id}")
 async def read_execution_log(log_file_id: str, last_position: int = 0):
     """
