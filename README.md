@@ -128,6 +128,47 @@ boost-xypy/
 
 Connect them in sequence and watch the data flow through your pipeline! Then visualize it in 3D to see your data flowing around the globe like neural pathways! 🌍⚡
 
+## Custom Nodes
+
+The Smart Folders system includes several specialized node types:
+
+### IP Webcam Recorder Node 🎥
+Record IP camera streams into 1-minute videos with authentication support.
+
+**Features:**
+- Connection testing with status indicators
+- Configurable recording duration (default 60 seconds)
+- Quality settings (low/medium/high)
+- Authentication support (username/password)
+- Toggle-able Python function view (hidden by default)
+- Automatic downstream processing
+
+**Supported Camera Formats:**
+- Generic HTTP streams: `http://IP:PORT/video`
+- MJPEG streams: `http://IP:PORT/mjpeg.cgi`
+- RTSP streams: `rtsp://IP:PORT/stream`
+- Axis cameras: `http://IP/mjpg/video.mjpg`
+- With authentication: `http://username:password@IP:PORT/video`
+
+**Prerequisites:**
+- `ffmpeg` installed and available in PATH
+- IP camera accessible on network
+- Python `requests` library (included in requirements)
+
+**Usage:**
+1. Add IP Webcam Node to your flow
+2. Configure camera settings (IP, port, credentials)
+3. Test connection (green indicator = success)
+4. Set recording duration and quality
+5. Click "Start Recording" to capture video
+6. Recorded file path automatically passed to downstream nodes
+
+**Testing:**
+Run the included test script to verify your camera setup:
+```bash
+python ip_webcam.py
+```
+
 ---
 
 **Built with**: React Flow, FastAPI, RestrictedPython, Zustand, TypeScript, Three.js, React Three Fiber

@@ -31,120 +31,47 @@ export function sphericalToCartesian(longitude: number, latitude: number, radius
 }
 
 /**
- * Create mesh flow layout where subscribers are one timezone west of publishers (left to right flow)
+ * Create sphere layout by mapping existing 2D x,y positions onto sphere surface
  */
 export function createSphereLayout(nodes: FlowNode[], edges: FlowEdge[], radius: number = 5): NeuralNode[] {
     const connectionDensity = calculateConnectionDensity(nodes, edges);
 
-    // Build adjacency lists
-    const outgoing = new Map<string, string[]>();
-    const incoming = new Map<string, string[]>();
+    // Find the bounds of existing x,y coordinates
+    let minX = Infinity, maxX = -Infinity;
+    let minY = Infinity, maxY = -Infinity;
 
     nodes.forEach(node => {
-        outgoing.set(node.id, []);
-        incoming.set(node.id, []);
+        const x = node.position.x;
+        const y = node.position.y;
+
+        minX = Math.min(minX, x);
+        maxX = Math.max(maxX, x);
+        minY = Math.min(minY, y);
+        maxY = Math.max(maxY, y);
     });
 
-    edges.forEach(edge => {
-        outgoing.get(edge.source)?.push(edge.target);
-        incoming.get(edge.target)?.push(edge.source);
-    });
+    console.log(`X range: ${minX} to ${maxX}, Y range: ${minY} to ${maxY}`);
 
-    // Find source nodes (no incoming edges)
-    const sourceNodes = nodes.filter(node =>
-        (incoming.get(node.id) || []).length === 0
-    );
+    // Map x,y coordinates to longitude,latitude
+    const mapToSphere = (x: number, y: number) => {
+        // Normalize x,y to [0,1] range
+        const normalizedX = (x - minX) / (maxX - minX);
+        const normalizedY = (y - minY) / (maxY - minY);
 
-    console.log('Source nodes:', sourceNodes.map(n => n.data.label));
+        // Map to longitude (-180 to 180) and latitude (-90 to 90)
+        // X maps to longitude (west to east flow maintained)
+        const longitude = (normalizedX * 360) - 180;
 
-    // Position tracking
-    const nodePositions = new Map<string, { longitude: number, latitude: number }>();
-    const visited = new Set<string>();
+        // Y maps to latitude (flip Y since screen Y increases downward but latitude increases upward)
+        const latitude = ((1 - normalizedY) * 180) - 90;
 
-    // Position source nodes at the front of the globe (0° longitude) so they're visible
-    const startLongitude = -225; // Front of the globe where camera is looking
+        return { longitude, latitude };
+    };
 
-    // Step 1: Position source nodes at front longitude
-    sourceNodes.forEach((node, index) => {
-        // Cluster in middle latitudes like Earth's land masses (-30 to +50)
-        const latitudeRange = 80; // -30 to +50
-        const startLatitude = -30;
-        const latitudeStep = sourceNodes.length > 1 ? latitudeRange / (sourceNodes.length - 1) : 0;
-        const latitude = startLatitude + (index * latitudeStep);
-
-        nodePositions.set(node.id, {
-            longitude: startLongitude, // Start at front of globe
-            latitude: latitude
-        });
-    });
-
-    // Step 2: Use BFS to position subscribers relative to their publishers
-    const queue = [...sourceNodes.map(n => n.id)];
-
-    while (queue.length > 0) {
-        const publisherId = queue.shift()!;
-
-        if (visited.has(publisherId)) continue;
-        visited.add(publisherId);
-
-        const publisherPos = nodePositions.get(publisherId);
-        if (!publisherPos) continue;
-
-        const subscribers = outgoing.get(publisherId) || [];
-
-        if (subscribers.length > 0) {
-            console.log(`Publisher "${publisherId}" at longitude ${publisherPos.longitude}° has ${subscribers.length} subscribers`);
-
-            // Position subscribers one timezone WEST (-10° longitude) for left-to-right flow
-            const subscriberLongitude = publisherPos.longitude - 10;
-            const publisherLatitude = publisherPos.latitude;
-
-            subscribers.forEach((subscriberId, index) => {
-                // Skip if already positioned (first publisher wins)
-                if (nodePositions.has(subscriberId)) return;
-
-                // Spread subscribers around publisher's latitude
-                let subscriberLatitude;
-                if (subscribers.length === 1) {
-                    // Single subscriber stays at same latitude
-                    subscriberLatitude = publisherLatitude;
-                } else {
-                    // Multiple subscribers spread around publisher latitude
-                    const spreadRange = 8; // ±4 degrees around publisher
-                    const step = subscribers.length > 1 ? spreadRange / (subscribers.length - 1) : 0;
-                    subscriberLatitude = publisherLatitude - (spreadRange / 2) + (index * step);
-                }
-
-                // Clamp to valid range
-                subscriberLatitude = Math.max(-30, Math.min(50, subscriberLatitude));
-
-                nodePositions.set(subscriberId, {
-                    longitude: subscriberLongitude,
-                    latitude: subscriberLatitude
-                });
-
-                // Add to queue for further processing
-                queue.push(subscriberId);
-            });
-        }
-    }
-
-    // Handle any unpositioned nodes (disconnected)
-    nodes.forEach(node => {
-        if (!nodePositions.has(node.id)) {
-            nodePositions.set(node.id, {
-                longitude: startLongitude,
-                latitude: Math.random() * 80 - 30 // Random latitude in middle range (-30 to +50)
-            });
-        }
-    });
-
-    console.log('Final positions:', Array.from(nodePositions.entries()));
-
-    // Convert to neural nodes
+    // Convert to neural nodes using existing positions
     const neuralNodes: NeuralNode[] = nodes.map(node => {
-        const pos = nodePositions.get(node.id)!;
-        const spherePosition = sphericalToCartesian(pos.longitude, pos.latitude, radius);
+        const { longitude, latitude } = mapToSphere(node.position.x, node.position.y);
+        const spherePosition = sphericalToCartesian(longitude, latitude, radius);
 
         return {
             ...node,

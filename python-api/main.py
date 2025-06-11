@@ -550,35 +550,270 @@ async def list_audios(request: dict):
 
 @app.get("/api/serve-audio")
 async def serve_audio(path: str):
-    """
-    Serve an audio file for playback
-    """
-    try:
-        if not path:
-            raise HTTPException(status_code=400, detail="Path parameter is required")
-        
-        # Validate the file exists
-        if not os.path.exists(path):
-            raise HTTPException(status_code=404, detail=f"Audio file not found: {path}")
-        
-        # Validate it's an audio file
-        if not path.lower().endswith(('.mp3', '.wav', '.ogg', '.m4a', '.aac', '.flac', '.wma', '.opus')):
-            raise HTTPException(status_code=400, detail="File is not a supported audio format")
-        
-        # Return the audio file
-        return FileResponse(
-            path=path,
-            media_type='audio/mpeg',  # Browser will handle different formats
-            filename=os.path.basename(path)
-        )
+    """Serve audio files from the server"""
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="Audio file not found")
     
+    # Security check - ensure path is within allowed directories
+    allowed_dirs = [
+        os.path.abspath("./audio_recordings"),
+        os.path.abspath("./recordings"), 
+        os.path.abspath("./uploads")
+    ]
+    
+    abs_path = os.path.abspath(path)
+    if not any(abs_path.startswith(allowed_dir) for allowed_dir in allowed_dirs):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    def iterfile():
+        with open(path, mode="rb") as file_like:
+            yield from file_like
+    
+    # Determine content type
+    if path.endswith('.mp3'):
+        media_type = 'audio/mpeg'
+    elif path.endswith('.wav'):
+        media_type = 'audio/wav'
+    elif path.endswith('.m4a'):
+        media_type = 'audio/mp4'
+    elif path.endswith('.aac'):
+        media_type = 'audio/aac'
+    else:
+        media_type = 'audio/mpeg'  # Default
+    
+    return StreamingResponse(iterfile(), media_type=media_type)
+
+# IP Camera Recording Endpoints
+
+class IPCameraTestRequest(BaseModel):
+    url: str
+    timeout: int = 10
+
+class IPCameraRecordRequest(BaseModel):
+    url: str
+    duration: int = 60
+    output_dir: str = "./webcam_recordings"
+    quality: str = "medium"
+    node_id: str
+    continuous: bool = False
+
+# Global dictionary to track recording processes
+recording_processes: Dict[str, Dict[str, Any]] = {}
+
+@app.post("/api/test-ip-camera")
+async def test_ip_camera(request: IPCameraTestRequest):
+    """Test IP camera connection"""
+    try:
+        import requests
+        
+        # Try to access the camera stream
+        response = requests.get(request.url, timeout=request.timeout, stream=True)
+        
+        if response.status_code == 200:
+            # Try to read a small amount of data to verify it's actually a video stream
+            data = response.raw.read(1024)
+            if len(data) > 0:
+                return {"status": "success", "message": "Camera connection successful"}
+            else:
+                raise Exception("No data received from camera")
+        else:
+            raise Exception(f"HTTP {response.status_code}: {response.reason}")
+            
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/record-ip-camera")
+async def start_ip_camera_recording(request: IPCameraRecordRequest):
+    """Start recording from IP camera using ffmpeg with optional continuous chunking"""
+    try:
+        # Create output directory if it doesn't exist
+        os.makedirs(request.output_dir, exist_ok=True)
+        
+        # Initialize or update recording session
+        if request.node_id not in recording_processes:
+            recording_processes[request.node_id] = {
+                "chunk_number": 1,
+                "continuous": request.continuous,
+                "request": request,
+                "should_stop": False
+            }
+        else:
+            recording_processes[request.node_id]["continuous"] = request.continuous
+            recording_processes[request.node_id]["request"] = request
+            recording_processes[request.node_id]["should_stop"] = False
+        
+        # Start first chunk
+        await _start_recording_chunk(request.node_id)
+        
+        return {
+            "status": "recording_started",
+            "continuous": request.continuous,
+            "node_id": request.node_id
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to start recording: {str(e)}")
+
+async def _start_recording_chunk(node_id: str):
+    """Start recording a single chunk"""
+    session = recording_processes[node_id]
+    request = session["request"]
+    chunk_num = session["chunk_number"]
+    
+    # Generate output filename with chunk number
+    timestamp = time.strftime("%Y%m%d_%H%M%S")
+    output_filename = f"ipcam_{node_id}_chunk{chunk_num:03d}_{timestamp}.mp4"
+    output_path = os.path.join(request.output_dir, output_filename)
+    
+    # Quality settings
+    quality_settings = {
+        "low": ["-s", "640x480", "-b:v", "500k"],
+        "medium": ["-s", "1280x720", "-b:v", "1000k"], 
+        "high": ["-s", "1920x1080", "-b:v", "2000k"]
+    }
+    
+    quality_args = quality_settings.get(request.quality, quality_settings["medium"])
+    
+    # Build ffmpeg command
+    ffmpeg_cmd = [
+        "ffmpeg",
+        "-y",  # Overwrite output file
+        "-i", request.url,  # Input stream URL
+        "-t", str(request.duration),  # Duration
+        "-c:v", "libx264",  # Video codec
+        "-preset", "fast",  # Encoding preset
+        *quality_args,  # Quality settings
+        "-f", "mp4",  # Output format
+        output_path
+    ]
+    
+    # Start recording process
+    process = subprocess.Popen(
+        ffmpeg_cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True
+    )
+    
+    # Store process reference
+    session["process"] = process
+    session["output_path"] = output_path
+    
+    # Start background thread to monitor completion
+    def monitor_completion():
+        stdout, stderr = process.communicate()
+        
+        # Check if recording was stopped
+        if session.get("should_stop", False):
+            return
+            
+        if process.returncode == 0 and os.path.exists(output_path):
+            # Chunk completed successfully
+            file_size = os.path.getsize(output_path)
+            
+            # Add to completed chunks list for polling
+            if "completed_chunks" not in session:
+                session["completed_chunks"] = []
+            
+            session["completed_chunks"].append({
+                "chunk_number": chunk_num,
+                "file_path": output_path,
+                "file_size": file_size
+            })
+            
+            # If continuous mode, start next chunk
+            if session.get("continuous", False) and not session.get("should_stop", False):
+                session["chunk_number"] += 1
+                import asyncio
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                loop.run_until_complete(_start_recording_chunk(node_id))
+                loop.close()
+    
+    thread = threading.Thread(target=monitor_completion)
+    thread.daemon = True
+    thread.start()
+
+@app.post("/api/stop-ip-camera-recording/{node_id}")
+async def stop_ip_camera_recording(node_id: str):
+    """Stop IP camera recording for a specific node"""
+    try:
+        if node_id not in recording_processes:
+            raise HTTPException(status_code=404, detail="No active recording found for this node")
+        
+        session = recording_processes[node_id]
+        session["should_stop"] = True
+        
+        process = session.get("process")
+        if process:
+            # Terminate the ffmpeg process gracefully
+            process.terminate()
+            
+            # Wait for process to finish (with timeout)
+            try:
+                stdout, stderr = process.communicate(timeout=10)
+            except subprocess.TimeoutExpired:
+                # Force kill if it doesn't terminate gracefully
+                process.kill()
+                stdout, stderr = process.communicate()
+        
+        # Get the last recorded file
+        output_file = session.get("output_path")
+        chunk_number = session.get("chunk_number", 1)
+        
+        # Clean up session
+        del recording_processes[node_id]
+        
+        if output_file and os.path.exists(output_file):
+            return {
+                "status": "recording_stopped",
+                "filePath": output_file,
+                "file_size": os.path.getsize(output_file),
+                "final_chunk": chunk_number
+            }
+        else:
+            return {
+                "status": "recording_stopped", 
+                "filePath": None,
+                "final_chunk": chunk_number
+            }
+            
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to serve audio: {str(e)}"
-        )
+        # Clean up process reference even if there's an error
+        if node_id in recording_processes:
+            session = recording_processes[node_id]
+            process = session.get("process")
+            if process:
+                try:
+                    process.kill()
+                except:
+                    pass
+            del recording_processes[node_id]
+        
+        raise HTTPException(status_code=500, detail=f"Failed to stop recording: {str(e)}")
+
+@app.post("/api/ip-camera-chunk-completed/{node_id}")
+async def handle_chunk_completed(node_id: str, chunk_data: dict):
+    """Handle chunk completion notification from frontend"""
+    # This endpoint allows the frontend to be notified when chunks complete
+    # The actual triggering happens in the frontend
+    return {"status": "acknowledged"}
+
+@app.get("/api/check-chunks/{node_id}")
+async def check_chunks(node_id: str):
+    """Check for new completed chunks for a node"""
+    if node_id not in recording_processes:
+        return {"newChunks": []}
+    
+    session = recording_processes[node_id]
+    completed_chunks = session.get("completed_chunks", [])
+    
+    # Return and clear the completed chunks
+    session["completed_chunks"] = []
+    
+    return {"newChunks": completed_chunks}
 
 if __name__ == "__main__":
     import uvicorn
