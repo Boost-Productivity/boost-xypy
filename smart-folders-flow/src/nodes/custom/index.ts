@@ -15,6 +15,8 @@ import { anthropicNodeConfig, anthropicNodeFactory } from './AnthropicNode';
 import { anthropicAdvancedNodeConfig, anthropicAdvancedNodeFactory } from './AnthropicAdvancedNode';
 import { timerNodeConfig, timerNodeFactory } from './TimerNode';
 import { ipWebcamNodeConfig, ipWebcamNodeFactory } from './IPWebcamNode';
+import { schedulerNodeConfig, schedulerNodeFactory } from './SchedulerNode';
+import { promptTemplateNodeConfig, promptTemplateNodeFactory } from './PromptTemplateNode';
 
 // Register the base SmartFolderNode
 const smartFolderNodeConfig: NodeTypeConfig = {
@@ -73,6 +75,8 @@ const registerNodes = () => {
     nodeRegistry.register(anthropicAdvancedNodeConfig, anthropicAdvancedNodeFactory);
     nodeRegistry.register(timerNodeConfig, timerNodeFactory);
     nodeRegistry.register(ipWebcamNodeConfig, ipWebcamNodeFactory);
+    nodeRegistry.register(schedulerNodeConfig, schedulerNodeFactory);
+    nodeRegistry.register(promptTemplateNodeConfig, promptTemplateNodeFactory);
 
     console.log(`✅ Registered ${nodeRegistry.getNodeTypes().length} node types`);
 };
@@ -92,6 +96,8 @@ export {
     anthropicAdvancedNodeConfig,
     timerNodeConfig,
     ipWebcamNodeConfig,
+    schedulerNodeConfig,
+    promptTemplateNodeConfig,
     brainDumpNodeFactory,
     labelNodeFactory,
     labelMakerNodeFactory,
@@ -101,7 +107,9 @@ export {
     anthropicNodeFactory,
     anthropicAdvancedNodeFactory,
     timerNodeFactory,
-    ipWebcamNodeFactory
+    ipWebcamNodeFactory,
+    schedulerNodeFactory,
+    promptTemplateNodeFactory
 };
 
 export default nodeRegistry;
