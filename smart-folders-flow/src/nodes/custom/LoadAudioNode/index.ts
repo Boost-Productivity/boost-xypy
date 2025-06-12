@@ -9,16 +9,54 @@ export const loadAudioNodeConfig: NodeTypeConfig = {
     component: LoadAudioNode,
     defaultData: {
         label: 'Load Audio',
-        pythonFunction: `# Audio file loader
-# Passes the selected audio file path for downstream processing
-def process(inputs):
+        pythonFunction: `def process(inputs):
+    import os
+    
+    # Get the selected audio file path from manual input
     audio_path = inputs.get("manual", "").strip()
     
     if not audio_path:
-        return "No audio file selected"
+        return "ERROR: No audio file selected"
     
-    # Return the audio file path for further processing
-    return f"Audio loaded: {audio_path}"`,
+    try:
+        # Validate the audio file exists
+        if not os.path.exists(audio_path):
+            return "ERROR: Audio file not found: " + audio_path
+        
+        if not os.path.isfile(audio_path):
+            return "ERROR: Path is not a file: " + audio_path
+        
+        # Get file information
+        file_size = os.path.getsize(audio_path)
+        file_name = os.path.basename(audio_path)
+        file_dir = os.path.dirname(audio_path)
+        
+        # Format file size
+        if file_size > 1024 * 1024:
+            size_str = str(round(file_size / (1024 * 1024), 2)) + " MB"
+        elif file_size > 1024:
+            size_str = str(round(file_size / 1024, 2)) + " KB"
+        else:
+            size_str = str(file_size) + " bytes"
+        
+        # Build result
+        result_lines = [
+            "Audio file loaded successfully!",
+            "",
+            "File: " + file_name,
+            "Size: " + size_str,
+            "Directory: " + file_dir,
+            "",
+            "Ready for downstream processing.",
+            "",
+            "--- AUDIO FILE PATH ---",
+            audio_path
+        ]
+        
+        return "\\n".join(result_lines)
+        
+    except Exception as e:
+        return "ERROR: " + str(e)`,
         manualInput: '',
         lastOutput: '',
         streamingLogs: '',
@@ -49,16 +87,54 @@ export const loadAudioNodeFactory: NodeFactory = (position) => {
         },
         data: {
             label: `Load Audio ${Date.now()}`,
-            pythonFunction: `# Audio file loader
-# Passes the selected audio file path for downstream processing
-def process(inputs):
+            pythonFunction: `def process(inputs):
+    import os
+    
+    # Get the selected audio file path from manual input
     audio_path = inputs.get("manual", "").strip()
     
     if not audio_path:
-        return "No audio file selected"
+        return "ERROR: No audio file selected"
     
-    # Return the audio file path for further processing
-    return f"Audio loaded: {audio_path}"`,
+    try:
+        # Validate the audio file exists
+        if not os.path.exists(audio_path):
+            return "ERROR: Audio file not found: " + audio_path
+        
+        if not os.path.isfile(audio_path):
+            return "ERROR: Path is not a file: " + audio_path
+        
+        # Get file information
+        file_size = os.path.getsize(audio_path)
+        file_name = os.path.basename(audio_path)
+        file_dir = os.path.dirname(audio_path)
+        
+        # Format file size
+        if file_size > 1024 * 1024:
+            size_str = str(round(file_size / (1024 * 1024), 2)) + " MB"
+        elif file_size > 1024:
+            size_str = str(round(file_size / 1024, 2)) + " KB"
+        else:
+            size_str = str(file_size) + " bytes"
+        
+        # Build result
+        result_lines = [
+            "Audio file loaded successfully!",
+            "",
+            "File: " + file_name,
+            "Size: " + size_str,
+            "Directory: " + file_dir,
+            "",
+            "Ready for downstream processing.",
+            "",
+            "--- AUDIO FILE PATH ---",
+            audio_path
+        ]
+        
+        return "\\n".join(result_lines)
+        
+    except Exception as e:
+        return "ERROR: " + str(e)`,
             manualInput: '',
             lastOutput: '',
             streamingLogs: '',

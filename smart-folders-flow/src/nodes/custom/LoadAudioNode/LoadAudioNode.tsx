@@ -355,6 +355,7 @@ const LoadAudioNode: React.FC<NodeProps> = ({ id, data }) => {
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '6px', fontSize: '11px' }}>
                             <label>Volume:</label>
                             <input
+                                className="nodrag"
                                 type="range"
                                 min="0"
                                 max="1"
@@ -389,20 +390,39 @@ const LoadAudioNode: React.FC<NodeProps> = ({ id, data }) => {
             {customData.selectedAudioFile && (
                 <button
                     onClick={() => executeSmartFolder(id)}
+                    disabled={nodeData.isExecuting}
                     style={{
-                        background: '#4caf50',
+                        background: nodeData.isExecuting ? '#9e9e9e' : '#4caf50',
                         color: 'white',
                         border: 'none',
                         borderRadius: '6px',
                         padding: '8px 16px',
-                        cursor: 'pointer',
+                        cursor: nodeData.isExecuting ? 'not-allowed' : 'pointer',
                         fontWeight: 'bold',
                         width: '100%',
                         marginBottom: '8px'
                     }}
                 >
-                    🚀 Process Audio
+                    {nodeData.isExecuting ? '⏳ Processing...' : '🚀 Process Audio'}
                 </button>
+            )}
+
+            {/* Output Display */}
+            {nodeData.lastOutput && (
+                <div style={{
+                    marginTop: '8px',
+                    padding: '8px',
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    borderRadius: '4px',
+                    fontSize: '11px',
+                    maxHeight: '100px',
+                    overflowY: 'auto',
+                    whiteSpace: 'pre-wrap'
+                }}>
+                    <div style={{ fontWeight: 'bold', marginBottom: '4px', color: '#c8e6c9' }}>Output:</div>
+                    {nodeData.lastOutput}
+                </div>
             )}
 
             {/* Status Messages */}

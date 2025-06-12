@@ -634,20 +634,9 @@ async def serve_audio(path: str):
     if not os.path.exists(path):
         raise HTTPException(status_code=404, detail="Audio file not found")
     
-    # Security check - ensure path is within allowed directories
-    allowed_dirs = [
-        os.path.abspath("./audio_recordings"),
-        os.path.abspath("./recordings"), 
-        os.path.abspath("./uploads")
-    ]
-    
-    abs_path = os.path.abspath(path)
-    if not any(abs_path.startswith(allowed_dir) for allowed_dir in allowed_dirs):
-        raise HTTPException(status_code=403, detail="Access denied")
-    
-    def iterfile():
-        with open(path, mode="rb") as file_like:
-            yield from file_like
+    # Validate it's an audio file
+    if not path.lower().endswith(('.mp3', '.wav', '.ogg', '.m4a', '.aac', '.flac', '.wma', '.opus')):
+        raise HTTPException(status_code=400, detail="File is not a supported audio format")
     
     # Determine content type
     if path.endswith('.mp3'):
@@ -658,10 +647,18 @@ async def serve_audio(path: str):
         media_type = 'audio/mp4'
     elif path.endswith('.aac'):
         media_type = 'audio/aac'
+    elif path.endswith('.ogg'):
+        media_type = 'audio/ogg'
+    elif path.endswith('.flac'):
+        media_type = 'audio/flac'
     else:
         media_type = 'audio/mpeg'  # Default
     
-    return StreamingResponse(iterfile(), media_type=media_type)
+    return FileResponse(
+        path=path,
+        media_type=media_type,
+        filename=os.path.basename(path)
+    )
 
 # IP Camera Recording Endpoints
 
