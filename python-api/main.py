@@ -12,6 +12,15 @@ import tempfile
 import time
 import uuid
 import glob
+
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    # dotenv not installed, skip loading .env file
+    pass
+
 from executor import execute_python_function, register_session_for_cancellation
 from storage import save_flow, load_flow, list_flows
 
@@ -20,6 +29,18 @@ execution_sessions: Dict[str, Dict[str, Any]] = {}
 
 # Webhook inbox store for named webhook endpoints
 webhook_inbox_store: Dict[str, Dict[str, Any]] = {}
+
+# Get allowed origins from environment variable
+def get_allowed_origins():
+    """Get CORS allowed origins from environment variable or use defaults"""
+    env_origins = os.getenv('CORS_ALLOWED_ORIGINS', '')
+    if env_origins:
+        # Split by comma and strip whitespace
+        origins = [origin.strip() for origin in env_origins.split(',') if origin.strip()]
+        return origins
+    else:
+        # Default origins for development
+        return ["http://localhost:3000", "http://localhost:3001"]
 
 app = FastAPI(
     title="Smart Folder Python Executor",
@@ -30,7 +51,7 @@ app = FastAPI(
 # Enable CORS for React app
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001", "http://35.193.237.0:3000"],  # React app URLs
+    allow_origins=get_allowed_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

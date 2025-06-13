@@ -6,6 +6,8 @@ import { WebhookNodeData } from './WebhookNode.types';
 const WebhookNode: React.FC<NodeProps> = ({ id, data }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [editingInboxName, setEditingInboxName] = useState(false);
+    const [showBaseUrlInput, setShowBaseUrlInput] = useState(false);
+    const [baseUrlInput, setBaseUrlInput] = useState('');
 
     const {
         deleteSmartFolder,
@@ -20,10 +22,25 @@ const WebhookNode: React.FC<NodeProps> = ({ id, data }) => {
         autoExecute: true
     };
 
+    // Get stored base URL from localStorage (same as webhook maker)
+    const getStoredBaseUrl = () => {
+        return localStorage.getItem('webhook_base_url') || '';
+    };
+
+    // Save base URL to localStorage
+    const saveBaseUrl = (url: string) => {
+        if (url.trim()) {
+            localStorage.setItem('webhook_base_url', url.trim());
+        } else {
+            localStorage.removeItem('webhook_base_url');
+        }
+    };
+
     // Generate webhook URL when inbox name changes
     useEffect(() => {
         if (customData.inboxName) {
-            const baseUrl = window.location.origin.replace(':3000', ':8000');
+            const storedBaseUrl = getStoredBaseUrl();
+            const baseUrl = storedBaseUrl || window.location.origin.replace(':3000', ':8000');
             const webhookUrl = `${baseUrl}/api/webhook/${customData.inboxName}`;
 
             if (customData.webhookUrl !== webhookUrl) {
@@ -78,6 +95,23 @@ const WebhookNode: React.FC<NodeProps> = ({ id, data }) => {
         }
     };
 
+    const handleBaseUrlSubmit = () => {
+        saveBaseUrl(baseUrlInput);
+        setBaseUrlInput('');
+        setShowBaseUrlInput(false);
+    };
+
+    const handleBaseUrlInputKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter') {
+            handleBaseUrlSubmit();
+        } else if (e.key === 'Escape') {
+            setBaseUrlInput('');
+            setShowBaseUrlInput(false);
+        }
+    };
+
+    const currentStoredUrl = getStoredBaseUrl();
+    const hasStoredUrl = !!currentStoredUrl;
     const hasInboxName = customData.inboxName && customData.inboxName.length > 0;
 
     return (
@@ -203,6 +237,79 @@ const WebhookNode: React.FC<NodeProps> = ({ id, data }) => {
                         }}
                     >
                         {customData.inboxName || 'Click to set inbox name...'}
+                    </div>
+                )}
+            </div>
+
+            {/* Base URL Configuration */}
+            <div style={{ marginBottom: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                    <span style={{ fontSize: '12px', opacity: 0.8 }}>
+                        Base URL: {hasStoredUrl ? '✅ Set' : '❌ Not Set'}
+                    </span>
+                    <button
+                        onClick={() => {
+                            setShowBaseUrlInput(!showBaseUrlInput);
+                            setBaseUrlInput(currentStoredUrl);
+                        }}
+                        style={{
+                            background: 'rgba(255,255,255,0.2)',
+                            color: 'white',
+                            border: '1px solid rgba(255,255,255,0.5)',
+                            borderRadius: '3px',
+                            padding: '2px 6px',
+                            fontSize: '10px',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        {hasStoredUrl ? 'Update' : 'Set'}
+                    </button>
+                </div>
+
+                {showBaseUrlInput && (
+                    <div style={{ display: 'flex', gap: '4px', marginBottom: '4px' }}>
+                        <input
+                            type="text"
+                            value={baseUrlInput}
+                            onChange={(e) => setBaseUrlInput(e.target.value)}
+                            onKeyDown={handleBaseUrlInputKeyDown}
+                            placeholder="https://your-server.com/api/webhook/"
+                            style={{
+                                flex: 1,
+                                padding: '6px',
+                                borderRadius: '4px',
+                                border: 'none',
+                                fontSize: '11px',
+                                fontFamily: 'monospace'
+                            }}
+                            className="nodrag"
+                            autoFocus
+                        />
+                        <button
+                            onClick={handleBaseUrlSubmit}
+                            style={{
+                                background: '#10b981',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                padding: '6px 8px',
+                                fontSize: '10px',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            Save
+                        </button>
+                    </div>
+                )}
+
+                {hasStoredUrl && (
+                    <div style={{
+                        fontSize: '10px',
+                        color: 'rgba(255,255,255,0.7)',
+                        fontFamily: 'monospace',
+                        wordBreak: 'break-all'
+                    }}>
+                        {currentStoredUrl}
                     </div>
                 )}
             </div>

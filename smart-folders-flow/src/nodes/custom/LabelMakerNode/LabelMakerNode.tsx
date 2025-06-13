@@ -252,6 +252,18 @@ const LabelMakerNode: React.FC<NodeProps> = ({ id, data, ...props }) => {
                                 type="text"
                                 value={labelInput}
                                 onChange={(e) => handleUpdateLabelInput(index, e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        handleAddLabelInput();
+                                        // Focus the new input after a brief delay
+                                        setTimeout(() => {
+                                            const inputs = document.querySelectorAll('.label-input');
+                                            const nextInput = inputs[index + 1] as HTMLInputElement;
+                                            if (nextInput) nextInput.focus();
+                                        }, 50);
+                                    }
+                                }}
                                 placeholder={`Label ${index + 1}`}
                                 style={{
                                     flex: 1,
@@ -262,7 +274,7 @@ const LabelMakerNode: React.FC<NodeProps> = ({ id, data, ...props }) => {
                                     color: '#333',
                                     fontSize: '12px'
                                 }}
-                                className="nodrag"
+                                className="nodrag label-input"
                             />
                             {(customData.labelInputs || []).length > 1 && (
                                 <button

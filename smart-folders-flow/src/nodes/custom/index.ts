@@ -25,6 +25,7 @@ import { audioExtractorNodeConfig, audioExtractorNodeFactory } from './AudioExtr
 import { whisperTranscriptionNodeConfig, whisperTranscriptionNodeFactory } from './WhisperTranscriptionNode';
 import { fileUploaderNodeConfig, fileUploaderNodeFactory } from './FileUploaderNode';
 import { webhookNodeConfig, webhookNodeFactory } from './WebhookNode';
+import { webhookMakerNodeConfig, webhookMakerNodeFactory } from './WebhookMakerNode';
 
 // Register the base SmartFolderNode
 const smartFolderNodeConfig: NodeTypeConfig = {
@@ -93,6 +94,7 @@ const registerNodes = () => {
     nodeRegistry.register(whisperTranscriptionNodeConfig, whisperTranscriptionNodeFactory);
     nodeRegistry.register(fileUploaderNodeConfig, fileUploaderNodeFactory);
     nodeRegistry.register(webhookNodeConfig, webhookNodeFactory);
+    nodeRegistry.register(webhookMakerNodeConfig, webhookMakerNodeFactory);
 
     console.log(`✅ Registered ${nodeRegistry.getNodeTypes().length} node types`);
 };
@@ -141,7 +143,8 @@ export {
     audioExtractorNodeFactory,
     whisperTranscriptionNodeFactory,
     fileUploaderNodeFactory,
-    webhookNodeFactory
+    webhookNodeFactory,
+    webhookMakerNodeFactory
 };
 
 export default nodeRegistry;
