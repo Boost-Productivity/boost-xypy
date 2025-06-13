@@ -1,9 +1,12 @@
 const { app, BrowserWindow } = require('electron')
 const path = require('path')
 const fs = require('fs')
+const { spawn } = require('child_process');
 
 // Store references to app windows
 const appWindows = new Map()
+
+let pythonProcess;
 
 function createLauncherWindow() {
     const launcher = new BrowserWindow({
@@ -109,6 +112,19 @@ ipcMain.handle('launch-app', (event, appConfig) => {
 
 // App lifecycle
 app.whenReady().then(() => {
+    // Start the Python server
+    pythonProcess = spawn('python3', ['python-api/main.py']);
+
+    pythonProcess.stdout.on('data', (data) => {
+        console.log(`Python stdout: ${data}`);
+    });
+    pythonProcess.stderr.on('data', (data) => {
+        console.error(`Python stderr: ${data}`);
+    });
+    pythonProcess.on('close', (code) => {
+        console.log(`Python process exited with code ${code}`);
+    });
+
     createLauncherWindow()
 
     app.on('activate', () => {
@@ -119,6 +135,7 @@ app.whenReady().then(() => {
 })
 
 app.on('window-all-closed', () => {
+    if (pythonProcess) pythonProcess.kill();
     if (process.platform !== 'darwin') {
         app.quit()
     }

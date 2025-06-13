@@ -12,6 +12,16 @@ import {
 } from '@xyflow/react';
 import { BaseNodeData } from './nodes/base/BaseNode.types';
 
+// Helper function to get API base URL
+const getApiBaseUrl = (): string => {
+    // If we're running on localhost, use localhost API
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        return 'http://localhost:8000';
+    }
+    // Otherwise, use the same hostname as the frontend with port 8000
+    return `http://${window.location.hostname}:8000`;
+};
+
 export interface SmartFolderData extends BaseNodeData {
     // Legacy compatibility - this interface extends BaseNodeData
 }
@@ -122,7 +132,7 @@ const executePythonFunctionWithLogging = async (
 ): Promise<string> => {
     try {
         // Start execution with logging (now returns immediately)
-        const response = await fetch('http://localhost:8000/api/execute/logging', {
+        const response = await fetch(`${getApiBaseUrl()}/api/execute/logging`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -155,7 +165,7 @@ const executePythonFunctionWithLogging = async (
             const startPolling = () => {
                 const pollLogs = async () => {
                     try {
-                        const logResponse = await fetch(`http://localhost:8000/api/logs/${result.log_file_id}?last_position=${position}`);
+                        const logResponse = await fetch(`${getApiBaseUrl()}/api/logs/${result.log_file_id}?last_position=${position}`);
                         const logData = await logResponse.json();
 
                         if (logData.content) {
@@ -225,7 +235,7 @@ const executePythonFunctionWithLogging = async (
 // Cancel execution function
 const cancelPythonExecution = async (sessionId: string): Promise<boolean> => {
     try {
-        const response = await fetch(`http://localhost:8000/api/cancel/${sessionId}`, {
+        const response = await fetch(`${getApiBaseUrl()}/api/cancel/${sessionId}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -660,7 +670,7 @@ const useStore = create<RFState>((set, get) => ({
         set({ isSaving: true });
 
         try {
-            const response = await fetch('http://localhost:8000/api/flows/save', {
+            const response = await fetch(`${getApiBaseUrl()}/api/flows/save`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -699,7 +709,7 @@ const useStore = create<RFState>((set, get) => ({
         set({ isLoading: true });
 
         try {
-            const response = await fetch('http://localhost:8000/api/flows/load/default');
+            const response = await fetch(`${getApiBaseUrl()}/api/flows/load/default`);
 
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);

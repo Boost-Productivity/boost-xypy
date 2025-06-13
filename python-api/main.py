@@ -18,6 +18,9 @@ from storage import save_flow, load_flow, list_flows
 # Session management for execution cancellation
 execution_sessions: Dict[str, Dict[str, Any]] = {}
 
+# Webhook inbox store for named webhook endpoints
+webhook_inbox_store: Dict[str, Dict[str, Any]] = {}
+
 app = FastAPI(
     title="Smart Folder Python Executor",
     description="A safe Python function execution API for Smart Folders",
@@ -27,7 +30,7 @@ app = FastAPI(
 # Enable CORS for React app
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001"],  # React app URLs
+    allow_origins=["http://localhost:3000", "http://localhost:3001", "http://35.193.237.0:3000"],  # React app URLs
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -1012,6 +1015,127 @@ async def concatenate_recent_videos(request: dict):
             status_code=500,
             detail=f"Failed to concatenate videos: {str(e)}"
         )
+
+@app.post("/api/webhook/{inbox_name}")
+async def webhook_inbox(inbox_name: str, payload: Dict[str, Any]):
+    """
+    Global webhook inbox that routes data to named webhook nodes.
+    Usage: POST to /api/webhook/jakes_inbox with JSON payload
+    """
+    try:
+        # Store the webhook data with timestamp
+        webhook_inbox_store[inbox_name] = {
+            "data": payload,
+            "timestamp": time.time(),
+            "received_at": time.strftime("%Y-%m-%d %H:%M:%S")
+        }
+        
+        # Load the current flow to find the webhook node
+        flow_result = load_flow("default")
+        if not flow_result["success"]:
+            return {
+                "success": True,
+                "message": f"Data received for inbox: {inbox_name} (no flow to execute)",
+                "timestamp": webhook_inbox_store[inbox_name]["timestamp"]
+            }
+        
+        nodes = flow_result["nodes"]
+        edges = flow_result["edges"]
+        
+        # Find the webhook node with matching inbox name
+        webhook_node = None
+        for node in nodes:
+            if (node.get("type") == "webhook" and 
+                node.get("data", {}).get("customData", {}).get("inboxName") == inbox_name):
+                webhook_node = node
+                break
+        
+        if not webhook_node:
+            return {
+                "success": True,
+                "message": f"Data received for inbox: {inbox_name} (no matching webhook node found)",
+                "timestamp": webhook_inbox_store[inbox_name]["timestamp"]
+            }
+        
+        # Execute the webhook node with the payload data
+        webhook_data_str = json.dumps(payload)
+        webhook_result = execute_python_function(
+            function_code=webhook_node["data"]["pythonFunction"],
+            input_value=json.dumps({"manual": webhook_data_str}),
+            timeout=600
+        )
+        
+        # Update the webhook node's output in the flow
+        webhook_node["data"]["lastOutput"] = webhook_result.get("output", "")
+        webhook_node["data"]["manualInput"] = webhook_data_str
+        
+        # Find and execute downstream nodes
+        def get_downstream_nodes(node_id, edges, nodes):
+            """Get all nodes connected downstream from the given node"""
+            downstream_ids = []
+            for edge in edges:
+                if edge["source"] == node_id:
+                    downstream_ids.append(edge["target"])
+            
+            downstream_nodes = []
+            for node in nodes:
+                if node["id"] in downstream_ids:
+                    downstream_nodes.append(node)
+            return downstream_nodes
+        
+        def execute_node_chain(current_node, edges, nodes, executed_nodes=None):
+            """Recursively execute a node and all its downstream connections"""
+            if executed_nodes is None:
+                executed_nodes = set()
+            
+            if current_node["id"] in executed_nodes:
+                return
+            
+            executed_nodes.add(current_node["id"])
+            
+            # Get inputs from upstream nodes
+            inputs = {"manual": current_node["data"].get("manualInput", "")}
+            
+            # Add inputs from connected upstream nodes
+            for edge in edges:
+                if edge["target"] == current_node["id"]:
+                    source_node = next((n for n in nodes if n["id"] == edge["source"]), None)
+                    if source_node and source_node["data"].get("lastOutput"):
+                        inputs[source_node["data"].get("label", "input")] = source_node["data"]["lastOutput"]
+            
+            # Execute current node if it has a Python function
+            if current_node["data"].get("pythonFunction"):
+                result = execute_python_function(
+                    function_code=current_node["data"]["pythonFunction"],
+                    input_value=json.dumps(inputs),
+                    timeout=600
+                )
+                current_node["data"]["lastOutput"] = result.get("output", "")
+            
+            # Execute downstream nodes
+            downstream_nodes = get_downstream_nodes(current_node["id"], edges, nodes)
+            for downstream_node in downstream_nodes:
+                execute_node_chain(downstream_node, edges, nodes, executed_nodes)
+            
+            return executed_nodes
+        
+        # Execute the webhook node and all downstream nodes
+        executed_node_ids = execute_node_chain(webhook_node, edges, nodes)
+        
+        # Save the updated flow with execution results
+        updated_flow_data = {"nodes": nodes, "edges": edges}
+        save_flow(updated_flow_data, "default")
+        
+        return {
+            "success": True,
+            "message": f"Webhook executed for inbox: {inbox_name}",
+            "timestamp": webhook_inbox_store[inbox_name]["timestamp"],
+            "webhook_output": webhook_result.get("output", ""),
+            "nodes_executed": len(executed_node_ids) if executed_node_ids else 1
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn
