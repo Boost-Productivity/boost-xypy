@@ -33,13 +33,39 @@ const VideoRecorderNode: React.FC<NodeProps> = ({ id, data }) => {
         videoQuality: 'medium',
         autoSaveOnStop: true,
         rotation: 0,
+        availableVideoSources: [],
+        isLoadingDevices: false,
     };
+
+    // Enumerate video devices
+    const enumerateVideoDevices = useCallback(async () => {
+        try {
+            updateNodeCustomData(id, { isLoadingDevices: true });
+
+            // Request permissions first
+            await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const videoDevices = devices.filter(device => device.kind === 'videoinput');
+
+            updateNodeCustomData(id, {
+                availableVideoSources: videoDevices,
+                isLoadingDevices: false,
+                selectedVideoSourceId: customData.selectedVideoSourceId || (videoDevices[0]?.deviceId)
+            });
+
+        } catch (error) {
+            console.error('Error enumerating devices:', error);
+            updateNodeCustomData(id, { isLoadingDevices: false });
+        }
+    }, [id, updateNodeCustomData, customData.selectedVideoSourceId]);
 
     // Initialize webcam
     const initializeCamera = useCallback(async () => {
         try {
             const constraints = {
                 video: {
+                    deviceId: customData.selectedVideoSourceId ? { exact: customData.selectedVideoSourceId } : undefined,
                     width: customData.videoQuality === 'high' ? 1920 :
                         customData.videoQuality === 'medium' ? 1280 : 640,
                     height: customData.videoQuality === 'high' ? 1080 :
@@ -58,7 +84,7 @@ const VideoRecorderNode: React.FC<NodeProps> = ({ id, data }) => {
             console.error('Error accessing camera:', error);
             alert('Could not access camera. Please ensure camera permissions are granted.');
         }
-    }, [customData.videoQuality]);
+    }, [customData.videoQuality, customData.selectedVideoSourceId]);
 
     // Cleanup camera
     const cleanupCamera = useCallback(() => {
@@ -219,16 +245,24 @@ const VideoRecorderNode: React.FC<NodeProps> = ({ id, data }) => {
         setLocalDuration(0); // Reset timer for next recording
     }, [mediaRecorder, localDuration, customData, id, updateNodeCustomData]);
 
-    // Initialize camera on mount
+    // Initialize devices and camera on mount
     useEffect(() => {
-        initializeCamera();
+        enumerateVideoDevices();
         return () => {
             cleanupCamera();
             if (intervalRef.current) {
                 clearInterval(intervalRef.current);
             }
         };
-    }, []);
+    }, [enumerateVideoDevices]);
+
+    // Initialize camera when video source changes
+    useEffect(() => {
+        if (customData.availableVideoSources && customData.availableVideoSources.length > 0) {
+            cleanupCamera();
+            setTimeout(() => initializeCamera(), 100);
+        }
+    }, [customData.selectedVideoSourceId, initializeCamera, cleanupCamera]);
 
     const handleDelete = () => {
         if (window.confirm(`Delete "${nodeData.label}"?`)) {
@@ -273,6 +307,12 @@ const VideoRecorderNode: React.FC<NodeProps> = ({ id, data }) => {
         const newRotation = ((customData.rotation || 0) - 90 + 360) % 360;
         updateNodeCustomData(id, {
             rotation: newRotation
+        });
+    };
+
+    const handleVideoSourceChange = (deviceId: string) => {
+        updateNodeCustomData(id, {
+            selectedVideoSourceId: deviceId
         });
     };
 
@@ -542,6 +582,65 @@ const VideoRecorderNode: React.FC<NodeProps> = ({ id, data }) => {
                             {quality}
                         </button>
                     ))}
+                </div>
+
+                {/* Video Source Selection */}
+                <div style={{ marginTop: '6px' }}>
+                    <label style={{ display: 'block', marginBottom: '2px', fontSize: '11px' }}>Video Source:</label>
+                    {customData.isLoadingDevices ? (
+                        <div style={{
+                            fontSize: '10px',
+                            opacity: 0.7,
+                            padding: '4px 6px'
+                        }}>
+                            🔄 Loading devices...
+                        </div>
+                    ) : customData.availableVideoSources && customData.availableVideoSources.length > 0 ? (
+                        <select
+                            value={customData.selectedVideoSourceId || ''}
+                            onChange={(e) => handleVideoSourceChange(e.target.value)}
+                            style={{
+                                width: '100%',
+                                padding: '4px 6px',
+                                borderRadius: '4px',
+                                border: 'none',
+                                fontSize: '11px',
+                                color: '#000',
+                                background: '#fff'
+                            }}
+                        >
+                            {customData.availableVideoSources.map(device => (
+                                <option key={device.deviceId} value={device.deviceId}>
+                                    {device.label || `Camera ${device.deviceId.slice(0, 8)}...`}
+                                </option>
+                            ))}
+                        </select>
+                    ) : (
+                        <div style={{
+                            fontSize: '10px',
+                            opacity: 0.7,
+                            padding: '4px 6px',
+                            color: '#ffcdd2'
+                        }}>
+                            ⚠️ No cameras found
+                        </div>
+                    )}
+                    <button
+                        onClick={enumerateVideoDevices}
+                        style={{
+                            background: 'rgba(255,255,255,0.2)',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '3px',
+                            padding: '2px 6px',
+                            fontSize: '10px',
+                            cursor: 'pointer',
+                            marginTop: '2px'
+                        }}
+                        disabled={customData.isLoadingDevices}
+                    >
+                        🔄 Refresh
+                    </button>
                 </div>
             </div>
 

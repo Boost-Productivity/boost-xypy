@@ -709,7 +709,7 @@ const useStore = create<RFState>((set, get) => ({
         set({ isLoading: true });
 
         try {
-            const response = await fetch(`${getApiBaseUrl()}/api/flows/load/default`);
+            const response = await fetch(`${getApiBaseUrl()}/api/flows/load/default?t=${Date.now()}`);
 
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);

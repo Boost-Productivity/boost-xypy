@@ -14,5 +14,8 @@ export interface VideoRecorderNodeData extends BaseNodeData {
         lastSaveMessage?: string;
         lastSaveTime?: number;
         rotation?: number; // Camera rotation in degrees (0, 90, 180, 270)
+        availableVideoSources?: MediaDeviceInfo[];
+        selectedVideoSourceId?: string;
+        isLoadingDevices?: boolean;
     };
 } 

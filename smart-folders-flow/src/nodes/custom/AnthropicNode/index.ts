@@ -12,11 +12,15 @@ export const anthropicNodeConfig: NodeTypeConfig = {
         label: 'Claude AI',
         pythonFunction: `def process(inputs):
     import anthropic
+    import os
     
-    # Get API key and prompt
+    # Get API key - check inputs first, then environment variables
     api_key = inputs.get("api_key")
     if not api_key:
-        return "ERROR: Anthropic API key required. Please set it in the node or provide via inputs."
+        api_key = os.environ.get("ANTHROPIC_API_KEY")
+    
+    if not api_key:
+        return "ERROR: Anthropic API key required. Please set it in the node, provide via inputs, or set ANTHROPIC_API_KEY environment variable."
     
     prompt = inputs.get("prompt", inputs.get("manual", ""))
     if not prompt:

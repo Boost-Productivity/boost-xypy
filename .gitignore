@@ -117,4 +117,7 @@ boost_data_path/
 python-api/flows_data/*.json
 
 # OS generated files
-Thumbs.db 
+Thumbs.db
+
+# VS Code workspace files
+*.code-workspace 

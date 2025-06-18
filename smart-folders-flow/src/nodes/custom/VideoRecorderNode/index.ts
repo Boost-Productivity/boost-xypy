@@ -31,6 +31,8 @@ def process(inputs):
             outputDirectory: './recordings',
             videoQuality: 'medium' as const,
             autoSaveOnStop: true,
+            availableVideoSources: [],
+            isLoadingDevices: false,
         }
     } as VideoRecorderNodeData
 };
@@ -67,6 +69,8 @@ def process(inputs):
                 outputDirectory: './recordings',
                 videoQuality: 'medium',
                 autoSaveOnStop: true,
+                availableVideoSources: [],
+                isLoadingDevices: false,
             }
         } as BaseNodeData,
     };
