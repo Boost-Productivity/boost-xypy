@@ -482,9 +482,15 @@ const useStore = create<RFState>((set, get) => ({
                 executionInputs[inputData.nodeLabel || sourceId] = inputData.value;
             });
 
+            // Merge node's own customData into execution inputs
+            executionInputs = { ...executionInputs, ...nodeData.customData };
+
             // If inputs parameter provided, use that instead
             if (inputs) {
                 executionInputs = inputs;
+                console.log('Executing with provided inputs:', inputs);
+            } else {
+                console.log('Executing without provided inputs - using gathered inputs:', executionInputs);
             }
 
             const output = await executePythonFunctionWithLogging(

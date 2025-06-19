@@ -103,6 +103,7 @@ const PromptTemplateNode: React.FC<NodeProps> = ({ id, data }) => {
 
     const handleExecute = () => {
         const storedApiKey = getStoredApiKey();
+        console.log('API Key retrieved for execution:', storedApiKey ? 'Key present' : 'No key found');
 
         // Check if all variables are filled
         const missingVariables = extractedVariables.filter(variable =>

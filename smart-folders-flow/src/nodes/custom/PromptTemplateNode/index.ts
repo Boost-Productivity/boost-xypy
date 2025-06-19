@@ -13,15 +13,46 @@ export const promptTemplateNodeConfig: NodeTypeConfig = {
         label: 'Prompt Template',
         pythonFunction: `def process(inputs):
     import anthropic
+    import os
+    import re
     
-    # Get API key and prompt
+    # Get API key - check inputs first, then environment variables
     api_key = inputs.get("api_key")
     if not api_key:
-        return "ERROR: Anthropic API key required. Please set it in the node."
+        api_key = os.environ.get("ANTHROPIC_API_KEY")
     
-    prompt = inputs.get("prompt", inputs.get("manual", ""))
+    if not api_key:
+        return "ERROR: Anthropic API key required. Please set it in the node, provide via inputs, or set ANTHROPIC_API_KEY environment variable."
+    
+    # Get prompt - could be pre-filled (manual execution) or need template filling (upstream execution)
+    prompt = inputs.get("prompt")
+    
     if not prompt:
-        return "ERROR: No prompt provided. Template may not be filled correctly."
+        # No pre-filled prompt, so we need to fill the template with input data
+        template = inputs.get("template", "")
+        if not template:
+            return "ERROR: No prompt template provided. Please set a template in the node."
+        
+        log_progress(f"🧩 Filling template with input data...")
+        
+        # Fill template with any input variables
+        filled_template = template
+        for key, value in inputs.items():
+            if key not in ["api_key", "template", "model", "temperature", "top_p", "top_k", "max_tokens", "system_prompt", "stop_sequences"]:
+                # Replace {{key}} with value
+                pattern = f"{{{{\\s*{re.escape(key)}\\s*}}}}"
+                filled_template = re.sub(pattern, str(value), filled_template)
+        
+        # Check if any variables are still unfilled
+        unfilled_vars = re.findall(r'{{\\s*(\\w+)\\s*}}', filled_template)
+        if unfilled_vars:
+            log_progress(f"⚠️ Some template variables remain unfilled: {unfilled_vars}")
+        
+        prompt = filled_template
+        log_progress(f"✅ Template filled: {prompt[:100]}{'...' if len(prompt) > 100 else ''}")
+    
+    if not prompt or prompt.strip() == "":
+        return "ERROR: No prompt available after template processing."
     
     # Parameters with defaults optimized for programmatic use
     model = inputs.get("model", "claude-sonnet-4-20250514")
@@ -34,7 +65,7 @@ export const promptTemplateNodeConfig: NodeTypeConfig = {
     
     log_progress(f"📝 Executing Prompt Template ({model})")
     log_progress(f"⚙️ Temperature: {temperature} (optimized for consistency)")
-    log_progress(f"🎯 Filled Template: {prompt[:150]}{'...' if len(prompt) > 150 else ''}")
+    log_progress(f"🎯 Final Prompt: {prompt[:150]}{'...' if len(prompt) > 150 else ''}")
     
     if system_prompt:
         log_progress(f"🎭 System: {system_prompt[:50]}{'...' if len(system_prompt) > 50 else ''}")
@@ -107,15 +138,46 @@ export const promptTemplateNodeFactory: NodeFactory = (position) => {
             label: `Prompt Template ${Date.now()}`,
             pythonFunction: `def process(inputs):
     import anthropic
+    import os
+    import re
     
-    # Get API key and prompt
+    # Get API key - check inputs first, then environment variables
     api_key = inputs.get("api_key")
     if not api_key:
-        return "ERROR: Anthropic API key required. Please set it in the node."
+        api_key = os.environ.get("ANTHROPIC_API_KEY")
     
-    prompt = inputs.get("prompt", inputs.get("manual", ""))
+    if not api_key:
+        return "ERROR: Anthropic API key required. Please set it in the node, provide via inputs, or set ANTHROPIC_API_KEY environment variable."
+    
+    # Get prompt - could be pre-filled (manual execution) or need template filling (upstream execution)
+    prompt = inputs.get("prompt")
+    
     if not prompt:
-        return "ERROR: No prompt provided. Template may not be filled correctly."
+        # No pre-filled prompt, so we need to fill the template with input data
+        template = inputs.get("template", "")
+        if not template:
+            return "ERROR: No prompt template provided. Please set a template in the node."
+        
+        log_progress(f"🧩 Filling template with input data...")
+        
+        # Fill template with any input variables
+        filled_template = template
+        for key, value in inputs.items():
+            if key not in ["api_key", "template", "model", "temperature", "top_p", "top_k", "max_tokens", "system_prompt", "stop_sequences"]:
+                # Replace {{key}} with value
+                pattern = f"{{{{\\s*{re.escape(key)}\\s*}}}}"
+                filled_template = re.sub(pattern, str(value), filled_template)
+        
+        # Check if any variables are still unfilled
+        unfilled_vars = re.findall(r'{{\\s*(\\w+)\\s*}}', filled_template)
+        if unfilled_vars:
+            log_progress(f"⚠️ Some template variables remain unfilled: {unfilled_vars}")
+        
+        prompt = filled_template
+        log_progress(f"✅ Template filled: {prompt[:100]}{'...' if len(prompt) > 100 else ''}")
+    
+    if not prompt or prompt.strip() == "":
+        return "ERROR: No prompt available after template processing."
     
     # Parameters with defaults optimized for programmatic use
     model = inputs.get("model", "claude-sonnet-4-20250514")
@@ -128,7 +190,7 @@ export const promptTemplateNodeFactory: NodeFactory = (position) => {
     
     log_progress(f"📝 Executing Prompt Template ({model})")
     log_progress(f"⚙️ Temperature: {temperature} (optimized for consistency)")
-    log_progress(f"🎯 Filled Template: {prompt[:150]}{'...' if len(prompt) > 150 else ''}")
+    log_progress(f"🎯 Final Prompt: {prompt[:150]}{'...' if len(prompt) > 150 else ''}")
     
     if system_prompt:
         log_progress(f"🎭 System: {system_prompt[:50]}{'...' if len(system_prompt) > 50 else ''}")
@@ -174,11 +236,11 @@ export const promptTemplateNodeFactory: NodeFactory = (position) => {
             streamingLogs: '',
             inputs: {},
             isExecuting: false,
-            nodeType: 'promptTemplate',
+            nodeType: 'promptTemplate' as const,
             customData: {
                 template: 'Hello {{name}}, please analyze the following: {{content}}',
                 variables: {},
-                temperature: 0, // Default to 0 for programmatic use
+                temperature: 0,
                 top_p: 1.0,
                 top_k: 40,
                 max_tokens: 1000,
@@ -186,6 +248,6 @@ export const promptTemplateNodeFactory: NodeFactory = (position) => {
                 system_prompt: '',
                 stop_sequences: ''
             }
-        } as BaseNodeData,
+        } as PromptTemplateNodeData
     };
 }; 

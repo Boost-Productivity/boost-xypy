@@ -272,7 +272,7 @@ function FlowComponent() {
         fitView
 
         defaultEdgeOptions={{
-          type: 'bezier',
+          type: 'default',
           animated: true,
           style: { stroke: '#0066cc', strokeWidth: 2 },
         }}
