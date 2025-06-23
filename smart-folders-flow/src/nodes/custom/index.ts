@@ -27,6 +27,8 @@ import { whisperTranscriptionNodeConfig, whisperTranscriptionNodeFactory } from 
 import { fileUploaderNodeConfig, fileUploaderNodeFactory } from './FileUploaderNode';
 import { webhookNodeConfig, webhookNodeFactory } from './WebhookNode';
 import { webhookMakerNodeConfig, webhookMakerNodeFactory } from './WebhookMakerNode';
+import { textFileWriterNodeConfig, textFileWriterNodeFactory } from './TextFileWriterNode';
+import { textFileLoaderNodeConfig, textFileLoaderNodeFactory } from './TextFileLoaderNode';
 
 // Register the base SmartFolderNode
 const smartFolderNodeConfig: NodeTypeConfig = {
@@ -97,6 +99,8 @@ const registerNodes = () => {
     nodeRegistry.register(fileUploaderNodeConfig, fileUploaderNodeFactory);
     nodeRegistry.register(webhookNodeConfig, webhookNodeFactory);
     nodeRegistry.register(webhookMakerNodeConfig, webhookMakerNodeFactory);
+    nodeRegistry.register(textFileWriterNodeConfig, textFileWriterNodeFactory);
+    nodeRegistry.register(textFileLoaderNodeConfig, textFileLoaderNodeFactory);
 
     console.log(`✅ Registered ${nodeRegistry.getNodeTypes().length} node types`);
 };
@@ -127,6 +131,9 @@ export {
     whisperTranscriptionNodeConfig,
     fileUploaderNodeConfig,
     webhookNodeConfig,
+    webhookMakerNodeConfig,
+    textFileWriterNodeConfig,
+    textFileLoaderNodeConfig,
     brainDumpNodeFactory,
     labelNodeFactory,
     labelMakerNodeFactory,
@@ -148,7 +155,9 @@ export {
     whisperTranscriptionNodeFactory,
     fileUploaderNodeFactory,
     webhookNodeFactory,
-    webhookMakerNodeFactory
+    webhookMakerNodeFactory,
+    textFileWriterNodeFactory,
+    textFileLoaderNodeFactory
 };
 
 export default nodeRegistry;

@@ -684,6 +684,102 @@ async def serve_audio(path: str):
         filename=os.path.basename(path)
     )
 
+@app.post("/api/list-files")
+async def list_files(request: dict):
+    """
+    List text files in the specified directory path
+    """
+    try:
+        path = request.get("path", "").strip()
+        extensions = request.get("extensions", [".txt", ".md", ".text", ".log"])
+        node_id = request.get("nodeId", "")
+        
+        if not path:
+            raise HTTPException(status_code=400, detail="Path is required")
+        
+        # Handle both file and directory paths
+        if os.path.isfile(path):
+            # If it's a single file, check if it matches our extensions
+            if any(path.lower().endswith(ext) for ext in extensions):
+                return {"files": [path]}
+            else:
+                return {"files": []}
+        
+        elif os.path.isdir(path):
+            # If it's a directory, find all matching files
+            file_patterns = [f'*{ext}' for ext in extensions]
+            text_files = []
+            
+            for pattern in file_patterns:
+                # Recursive search
+                full_pattern = os.path.join(path, '**', pattern)
+                text_files.extend(glob.glob(full_pattern, recursive=True))
+                # Also check current directory
+                current_pattern = os.path.join(path, pattern)
+                text_files.extend(glob.glob(current_pattern))
+            
+            # Remove duplicates and sort
+            text_files = sorted(list(set(text_files)))
+            
+            return {"files": text_files}
+        
+        else:
+            raise HTTPException(status_code=404, detail=f"Path not found: {path}")
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to list files: {str(e)}"
+        )
+
+@app.post("/api/read-text-file")
+async def read_text_file(request: dict):
+    """
+    Read the content of a text file
+    """
+    try:
+        file_path = request.get("file_path", "").strip()
+        
+        if not file_path:
+            raise HTTPException(status_code=400, detail="file_path is required")
+        
+        # Validate the file exists
+        if not os.path.exists(file_path):
+            raise HTTPException(status_code=404, detail=f"File not found: {file_path}")
+        
+        # Validate it's a file (not a directory)
+        if not os.path.isfile(file_path):
+            raise HTTPException(status_code=400, detail=f"Path is not a file: {file_path}")
+        
+        # Read the file content
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+        except UnicodeDecodeError:
+            # Try with latin-1 encoding if UTF-8 fails
+            try:
+                with open(file_path, 'r', encoding='latin-1') as f:
+                    content = f.read()
+            except Exception as e:
+                raise HTTPException(status_code=400, detail=f"Could not decode file as text: {str(e)}")
+        
+        return {
+            "content": content,
+            "file_path": file_path,
+            "file_size": len(content),
+            "encoding": "utf-8"
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to read text file: {str(e)}"
+        )
+
 # IP Camera Recording Endpoints
 
 class IPCameraTestRequest(BaseModel):
