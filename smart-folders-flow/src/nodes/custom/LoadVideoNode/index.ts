@@ -12,13 +12,20 @@ export const loadVideoNodeConfig: NodeTypeConfig = {
         pythonFunction: `# Video file loader
 # Passes the selected video file path for downstream processing
 def process(inputs):
+    # Check multiple sources for the video path
     video_path = inputs.get("manual", "").strip()
     
+    # If manual input is empty, check selectedVideoFile from customData
     if not video_path:
-        return "No video file selected"
+        video_path = inputs.get("selectedVideoFile", "").strip()
     
-    # Return the video file path for further processing
-    return f"Video loaded: {video_path}"`,
+    if not video_path:
+        return "ERROR: No video file selected"
+    
+    log_progress(f"📽️ Selected video: {video_path}")
+    
+    # Return just the video file path (no prefix text)
+    return video_path`,
         manualInput: '',
         lastOutput: '',
         streamingLogs: '',
@@ -51,13 +58,20 @@ export const loadVideoNodeFactory: NodeFactory = (position) => {
             pythonFunction: `# Video file loader
 # Passes the selected video file path for downstream processing
 def process(inputs):
+    # Check multiple sources for the video path
     video_path = inputs.get("manual", "").strip()
     
+    # If manual input is empty, check selectedVideoFile from customData
     if not video_path:
-        return "No video file selected"
+        video_path = inputs.get("selectedVideoFile", "").strip()
     
-    # Return the video file path for further processing
-    return f"Video loaded: {video_path}"`,
+    if not video_path:
+        return "ERROR: No video file selected"
+    
+    log_progress(f"📽️ Selected video: {video_path}")
+    
+    # Return just the video file path (no prefix text)
+    return video_path`,
             manualInput: '',
             lastOutput: '',
             streamingLogs: '',

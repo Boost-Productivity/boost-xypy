@@ -11,6 +11,7 @@ import { labelMakerNodeConfig, labelMakerNodeFactory } from './LabelMakerNode';
 import { videoRecorderNodeConfig, videoRecorderNodeFactory } from './VideoRecorderNode';
 import { loadVideoNodeConfig, loadVideoNodeFactory } from './LoadVideoNode';
 import { loadAudioNodeConfig, loadAudioNodeFactory } from './LoadAudioNode';
+import { audioPlayerNodeConfig, audioPlayerNodeFactory } from './AudioPlayerNode';
 import { anthropicNodeConfig, anthropicNodeFactory } from './AnthropicNode';
 import { anthropicAdvancedNodeConfig, anthropicAdvancedNodeFactory } from './AnthropicAdvancedNode';
 import { timerNodeConfig, timerNodeFactory } from './TimerNode';
@@ -80,6 +81,7 @@ const registerNodes = () => {
     nodeRegistry.register(videoRecorderNodeConfig, videoRecorderNodeFactory);
     nodeRegistry.register(loadVideoNodeConfig, loadVideoNodeFactory);
     nodeRegistry.register(loadAudioNodeConfig, loadAudioNodeFactory);
+    nodeRegistry.register(audioPlayerNodeConfig, audioPlayerNodeFactory);
     nodeRegistry.register(anthropicNodeConfig, anthropicNodeFactory);
     nodeRegistry.register(anthropicAdvancedNodeConfig, anthropicAdvancedNodeFactory);
     nodeRegistry.register(timerNodeConfig, timerNodeFactory);
@@ -110,6 +112,7 @@ export {
     videoRecorderNodeConfig,
     loadVideoNodeConfig,
     loadAudioNodeConfig,
+    audioPlayerNodeConfig,
     anthropicNodeConfig,
     anthropicAdvancedNodeConfig,
     timerNodeConfig,
@@ -130,6 +133,7 @@ export {
     videoRecorderNodeFactory,
     loadVideoNodeFactory,
     loadAudioNodeFactory,
+    audioPlayerNodeFactory,
     anthropicNodeFactory,
     anthropicAdvancedNodeFactory,
     timerNodeFactory,

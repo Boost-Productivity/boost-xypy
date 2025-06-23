@@ -118,14 +118,20 @@ const LoadVideoNode: React.FC<NodeProps> = ({ id, data }) => {
             }
         }
 
-        if (incomingPath && incomingPath !== customData.inputPath) {
+        // Only reload videos if:
+        // 1. We have a new incoming path
+        // 2. It's different from current inputPath 
+        // 3. It's not just a selected video file (to avoid clearing the list when user selects a video)
+        if (incomingPath &&
+            incomingPath !== customData.inputPath &&
+            incomingPath !== customData.selectedVideoFile) {
             console.log(`📽️ LoadVideo loading path: ${incomingPath}`);
             updateNodeCustomData(id, {
                 inputPath: incomingPath
             });
             loadVideos(incomingPath);
         }
-    }, [nodeData.manualInput, nodeData.inputs, customData.inputPath, id, updateNodeCustomData, loadVideos]);
+    }, [nodeData.manualInput, nodeData.inputs, customData.inputPath, customData.selectedVideoFile, id, updateNodeCustomData, loadVideos]);
 
     const handleDelete = () => {
         if (window.confirm(`Delete "${nodeData.label}"?`)) {

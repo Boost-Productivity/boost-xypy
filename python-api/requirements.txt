@@ -4,4 +4,7 @@ RestrictedPython
 pydantic
 anthropic
 requests
-openai-whisper 
+openai-whisper
+pdfplumber
+PyPDF2
+pdfminer3 

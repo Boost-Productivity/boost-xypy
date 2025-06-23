@@ -12,8 +12,12 @@ export const loadAudioNodeConfig: NodeTypeConfig = {
         pythonFunction: `def process(inputs):
     import os
     
-    # Get the selected audio file path from manual input
+    # Get the selected audio file path from manual input first
     audio_path = inputs.get("manual", "").strip()
+    
+    # If no manual input, check for selectedAudioFile from customData  
+    if not audio_path:
+        audio_path = inputs.get("selectedAudioFile", "").strip()
     
     if not audio_path:
         return "ERROR: No audio file selected"
@@ -26,34 +30,8 @@ export const loadAudioNodeConfig: NodeTypeConfig = {
         if not os.path.isfile(audio_path):
             return "ERROR: Path is not a file: " + audio_path
         
-        # Get file information
-        file_size = os.path.getsize(audio_path)
-        file_name = os.path.basename(audio_path)
-        file_dir = os.path.dirname(audio_path)
-        
-        # Format file size
-        if file_size > 1024 * 1024:
-            size_str = str(round(file_size / (1024 * 1024), 2)) + " MB"
-        elif file_size > 1024:
-            size_str = str(round(file_size / 1024, 2)) + " KB"
-        else:
-            size_str = str(file_size) + " bytes"
-        
-        # Build result
-        result_lines = [
-            "Audio file loaded successfully!",
-            "",
-            "File: " + file_name,
-            "Size: " + size_str,
-            "Directory: " + file_dir,
-            "",
-            "Ready for downstream processing.",
-            "",
-            "--- AUDIO FILE PATH ---",
-            audio_path
-        ]
-        
-        return "\\n".join(result_lines)
+        # Return just the file path for downstream processing
+        return audio_path
         
     except Exception as e:
         return "ERROR: " + str(e)`,
@@ -90,8 +68,12 @@ export const loadAudioNodeFactory: NodeFactory = (position) => {
             pythonFunction: `def process(inputs):
     import os
     
-    # Get the selected audio file path from manual input
+    # Get the selected audio file path from manual input first
     audio_path = inputs.get("manual", "").strip()
+    
+    # If no manual input, check for selectedAudioFile from customData  
+    if not audio_path:
+        audio_path = inputs.get("selectedAudioFile", "").strip()
     
     if not audio_path:
         return "ERROR: No audio file selected"
@@ -104,34 +86,8 @@ export const loadAudioNodeFactory: NodeFactory = (position) => {
         if not os.path.isfile(audio_path):
             return "ERROR: Path is not a file: " + audio_path
         
-        # Get file information
-        file_size = os.path.getsize(audio_path)
-        file_name = os.path.basename(audio_path)
-        file_dir = os.path.dirname(audio_path)
-        
-        # Format file size
-        if file_size > 1024 * 1024:
-            size_str = str(round(file_size / (1024 * 1024), 2)) + " MB"
-        elif file_size > 1024:
-            size_str = str(round(file_size / 1024, 2)) + " KB"
-        else:
-            size_str = str(file_size) + " bytes"
-        
-        # Build result
-        result_lines = [
-            "Audio file loaded successfully!",
-            "",
-            "File: " + file_name,
-            "Size: " + size_str,
-            "Directory: " + file_dir,
-            "",
-            "Ready for downstream processing.",
-            "",
-            "--- AUDIO FILE PATH ---",
-            audio_path
-        ]
-        
-        return "\\n".join(result_lines)
+        # Return just the file path for downstream processing
+        return audio_path
         
     except Exception as e:
         return "ERROR: " + str(e)`,

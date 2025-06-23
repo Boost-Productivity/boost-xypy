@@ -12,6 +12,7 @@ interface NeuralNetwork3DProps {
 
 export const NeuralNetwork3D: React.FC<NeuralNetwork3DProps> = ({ data }) => {
     const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+    const [isRotating, setIsRotating] = useState(false);
 
     // Create the spherical layout
     const neuralNodes: NeuralNode[] = useMemo(() => {
@@ -64,7 +65,8 @@ export const NeuralNetwork3D: React.FC<NeuralNetwork3DProps> = ({ data }) => {
                     rotateSpeed={0.5}
                     zoomSpeed={0.2}
                     panSpeed={0.8}
-                    autoRotate={false}
+                    autoRotate={isRotating}
+                    autoRotateSpeed={0.8}
                     minDistance={5}
                     maxDistance={15}
                     minPolarAngle={Math.PI / 4}
@@ -181,6 +183,26 @@ export const NeuralNetwork3D: React.FC<NeuralNetwork3DProps> = ({ data }) => {
                 </div>
             )}
 
+            {/* Rotation control button */}
+            <button
+                onClick={() => setIsRotating(!isRotating)}
+                style={{
+                    position: 'absolute',
+                    bottom: '80px',
+                    right: '20px',
+                    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                    color: 'white',
+                    border: '1px solid #4dabf7',
+                    borderRadius: '4px',
+                    padding: '6px 12px',
+                    fontSize: '11px',
+                    cursor: 'pointer',
+                    zIndex: 1000
+                }}
+            >
+                {isRotating ? '⏸️ Stop Globe' : '▶️ Rotate Globe'}
+            </button>
+
             {/* Controls info */}
             <div style={{
                 position: 'absolute',
@@ -196,6 +218,7 @@ export const NeuralNetwork3D: React.FC<NeuralNetwork3DProps> = ({ data }) => {
                 <div>🖱️ Click & drag to spin globe</div>
                 <div>🔍 Scroll to zoom</div>
                 <div>💫 Click nodes to inspect</div>
+                <div>🔄 {isRotating ? 'Auto-rotating' : 'Manual control'}</div>
             </div>
         </div>
     );

@@ -72,10 +72,8 @@ const LoadAudioNode: React.FC<NodeProps> = ({ id, data }) => {
                 lastLoadTime: Date.now()
             });
 
-            // If only one audio, auto-select it and update manual input
-            if (audios.length === 1) {
-                updateSmartFolderManualInput(id, audios[0]);
-            }
+            // Remove auto-selection and manual input update for single audio
+            // Let user explicitly select the audio file they want
 
         } catch (error) {
             console.error('Load audios error:', error);
@@ -89,7 +87,7 @@ const LoadAudioNode: React.FC<NodeProps> = ({ id, data }) => {
         } finally {
             setIsLoading(false);
         }
-    }, [id, updateNodeCustomData, updateSmartFolderManualInput]);
+    }, [id, updateNodeCustomData]);
 
     // Handle audio selection
     const handleAudioSelect = useCallback((audioPath: string) => {
@@ -119,14 +117,15 @@ const LoadAudioNode: React.FC<NodeProps> = ({ id, data }) => {
             }
         }
 
-        if (incomingPath && incomingPath !== customData.inputPath) {
+        // Don't reload audios if the incoming path matches the currently selected audio file
+        if (incomingPath && incomingPath !== customData.inputPath && incomingPath !== customData.selectedAudioFile) {
             console.log(`🎵 LoadAudio loading path: ${incomingPath}`);
             updateNodeCustomData(id, {
                 inputPath: incomingPath
             });
             loadAudios(incomingPath);
         }
-    }, [nodeData.manualInput, nodeData.inputs, customData.inputPath, id, updateNodeCustomData, loadAudios]);
+    }, [nodeData.manualInput, nodeData.inputs, customData.inputPath, customData.selectedAudioFile, id, updateNodeCustomData, loadAudios]);
 
     const handleDelete = () => {
         if (window.confirm(`Delete "${nodeData.label}"?`)) {
