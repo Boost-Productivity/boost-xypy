@@ -27,6 +27,7 @@ export const videoRecorderNodeConfig: NodeTypeConfig = {
             isRecording: false,
             outputDirectory: './recordings',
             lastRecordedFile: undefined,
+            rotation: 0,
         },
     } as VideoRecorderNodeData,
 };

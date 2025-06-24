@@ -6,5 +6,6 @@ export interface VideoRecorderNodeData extends BaseNodeData {
         isRecording: boolean;
         outputDirectory: string;
         lastRecordedFile?: string;
+        rotation: number; // 0, 90, 180, 270 degrees
     };
 } 

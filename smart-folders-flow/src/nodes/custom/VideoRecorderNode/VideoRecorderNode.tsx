@@ -20,6 +20,7 @@ const VideoRecorderNode: React.FC<NodeProps> = ({ id, data }) => {
     const customData = nodeData.customData || {
         isRecording: false,
         outputDirectory: './recordings',
+        rotation: 0,
     };
 
     // Initialize webcam
@@ -140,11 +141,28 @@ const VideoRecorderNode: React.FC<NodeProps> = ({ id, data }) => {
         });
     };
 
+    // Handle rotation
+    const handleRotation = () => {
+        const newRotation = (customData.rotation + 90) % 360;
+        console.log(`Rotating from ${customData.rotation}° to ${newRotation}°`);
+        updateNodeCustomData(id, {
+            rotation: newRotation
+        });
+    };
+
     // Initialize camera on mount
     useEffect(() => {
         initializeCamera();
         return () => cleanupCamera();
     }, []);
+
+    // Calculate container dimensions based on rotation
+    const isPortrait = customData.rotation === 90 || customData.rotation === 270;
+    const videoWidth = 280;
+    const videoHeight = 180;
+
+    const containerWidth = isPortrait ? videoHeight : videoWidth;
+    const containerHeight = isPortrait ? videoWidth : videoHeight;
 
     return (
         <div style={{
@@ -152,15 +170,14 @@ const VideoRecorderNode: React.FC<NodeProps> = ({ id, data }) => {
             border: '2px solid #4a5568',
             borderRadius: '12px',
             padding: '16px',
-            minWidth: '320px',
+            width: containerWidth + 32, // +32 for padding
             color: 'white',
-            fontFamily: 'system-ui, -apple-system, sans-serif'
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+            transition: 'width 0.3s ease'
         }}>
-            <Handle
-                type="source"
-                position={Position.Right}
-                style={{ background: '#22c55e', width: '12px', height: '12px' }}
-            />
+            {/* Handles */}
+            <Handle type="target" position={Position.Top} />
+            <Handle type="source" position={Position.Bottom} />
 
             <div style={{ marginBottom: '12px', fontWeight: 'bold', fontSize: '14px' }}>
                 📹 {nodeData.label}
@@ -168,17 +185,56 @@ const VideoRecorderNode: React.FC<NodeProps> = ({ id, data }) => {
 
             {/* Webcam Preview */}
             <div style={{ marginBottom: '12px' }}>
-                <video
-                    ref={videoRef}
-                    autoPlay
-                    muted
-                    style={{
-                        width: '100%',
-                        height: '180px',
-                        borderRadius: '8px',
-                        backgroundColor: '#000'
-                    }}
-                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '11px' }}>Camera Preview:</span>
+                    <button
+                        onClick={handleRotation}
+                        style={{
+                            background: 'rgba(255,255,255,0.2)',
+                            color: 'white',
+                            border: '1px solid white',
+                            borderRadius: '4px',
+                            padding: '4px 8px',
+                            fontSize: '10px',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        🔄 Rotate
+                    </button>
+                </div>
+
+                <div style={{
+                    width: containerWidth,
+                    height: containerHeight,
+                    borderRadius: '8px',
+                    overflow: 'hidden',
+                    backgroundColor: '#000',
+                    position: 'relative',
+                    transition: 'width 0.3s ease, height 0.3s ease',
+                    margin: '0 auto'
+                }}>
+                    <video
+                        ref={videoRef}
+                        autoPlay
+                        muted
+                        style={{
+                            width: videoWidth,
+                            height: videoHeight,
+                            position: 'absolute',
+                            top: '50%',
+                            left: '50%',
+                            transformOrigin: 'center center',
+                            transform: `translate(-50%, -50%) rotate(${customData.rotation || 0}deg)`,
+                            transition: 'transform 0.3s ease',
+                            objectFit: 'cover'
+                        }}
+                    />
+                </div>
+
+                {/* Debug info */}
+                <div style={{ fontSize: '10px', opacity: 0.6, marginTop: '4px' }}>
+                    {containerWidth}×{containerHeight} | {customData.rotation || 0}°
+                </div>
             </div>
 
             {/* Directory Input */}
