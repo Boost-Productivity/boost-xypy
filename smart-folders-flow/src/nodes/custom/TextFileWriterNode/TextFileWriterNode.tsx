@@ -7,10 +7,10 @@ const TextFileWriterNode: React.FC<NodeProps> = ({ id, data }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [editingContent, setEditingContent] = useState(false);
     const [editingDir, setEditingDir] = useState(false);
-    const [editingFilename, setEditingFilename] = useState(false);
+
     const [localContent, setLocalContent] = useState('');
     const [localDir, setLocalDir] = useState('');
-    const [localFilename, setLocalFilename] = useState('');
+
     const [isWriting, setIsWriting] = useState(false);
 
     const {
@@ -47,13 +47,22 @@ const TextFileWriterNode: React.FC<NodeProps> = ({ id, data }) => {
                 const value = inputData.value || '';
                 console.log(`📝 TextWriter received data from ${inputData.nodeLabel} (${sourceId}): ${value.substring(0, 100)}...`);
 
-                // Try to detect if this looks like a directory path or content
-                if (value.includes('/') && !value.includes('\n') && value.length < 500) {
-                    // Likely a directory path
-                    incomingDir = value;
-                } else {
-                    // Likely text content
-                    incomingContent = value;
+                // Try to parse as JSON first (for structured data)
+                try {
+                    const parsed = JSON.parse(value);
+                    if (parsed.text_content) incomingContent = parsed.text_content;
+                    if (parsed.output_dir) incomingDir = parsed.output_dir;
+                    if (parsed.output_directory) incomingDir = parsed.output_directory;
+                } catch {
+                    // Not JSON, treat as direct values
+                    // Try to detect if this looks like a directory path or content
+                    if (value.includes('/') && !value.includes('\n') && value.length < 500) {
+                        // Likely a directory path
+                        incomingDir = value;
+                    } else {
+                        // Likely text content
+                        incomingContent = value;
+                    }
                 }
             }
         }
@@ -69,14 +78,44 @@ const TextFileWriterNode: React.FC<NodeProps> = ({ id, data }) => {
             updates.outputDirectory = incomingDir;
         }
 
-        if (manualInput && manualInput !== customData.textContent) {
+        if (manualInput && manualInput !== customData.textContent && !incomingContent) {
             updates.textContent = manualInput;
         }
 
         if (Object.keys(updates).length > 0) {
+            console.log(`📝 TextWriter updating:`, updates);
             updateNodeCustomData(id, updates);
         }
     }, [nodeData.manualInput, nodeData.inputs, customData.textContent, customData.outputDirectory, id, updateNodeCustomData]);
+
+    // Monitor execution completion
+    useEffect(() => {
+        if (!nodeData.isExecuting && nodeData.lastOutput && customData.lastWriteStatus === 'writing') {
+            if (nodeData.lastOutput.includes('ERROR:')) {
+                updateNodeCustomData(id, {
+                    lastWriteStatus: 'error',
+                    lastWriteMessage: nodeData.lastOutput || 'Write failed',
+                    lastWriteTime: Date.now()
+                });
+            } else {
+                updateNodeCustomData(id, {
+                    lastWriteStatus: 'success',
+                    lastWriteMessage: 'File written successfully',
+                    outputFilePath: nodeData.lastOutput,
+                    lastWriteTime: Date.now()
+                });
+            }
+            setIsWriting(false);
+        }
+
+        if (nodeData.isExecuting && customData.lastWriteStatus !== 'writing') {
+            updateNodeCustomData(id, {
+                lastWriteStatus: 'writing',
+                lastWriteMessage: 'Writing file...',
+                lastWriteTime: Date.now()
+            });
+        }
+    }, [nodeData.isExecuting, nodeData.lastOutput, customData.lastWriteStatus, id, updateNodeCustomData]);
 
     const handleWriteFile = useCallback(async () => {
         if (!customData.textContent || !customData.outputDirectory) {
@@ -89,23 +128,13 @@ const TextFileWriterNode: React.FC<NodeProps> = ({ id, data }) => {
         }
 
         setIsWriting(true);
-        updateNodeCustomData(id, {
-            lastWriteStatus: 'success', // Optimistic update
-            lastWriteMessage: 'Writing file...',
-            lastWriteTime: Date.now()
-        });
 
         try {
-            // Prepare the input for Python function
             const input = {
                 text_content: customData.textContent,
-                output_dir: customData.outputDirectory,
-                filename: customData.filename || 'output'
+                output_dir: customData.outputDirectory
             };
 
-            updateSmartFolderManualInput(id, JSON.stringify(input));
-
-            // Execute the Python function
             executeSmartFolder(id, input);
 
         } catch (error) {
@@ -115,10 +144,9 @@ const TextFileWriterNode: React.FC<NodeProps> = ({ id, data }) => {
                 lastWriteMessage: error instanceof Error ? error.message : String(error),
                 lastWriteTime: Date.now()
             });
-        } finally {
             setIsWriting(false);
         }
-    }, [id, customData, updateNodeCustomData, updateSmartFolderManualInput, executeSmartFolder]);
+    }, [id, customData, updateNodeCustomData, executeSmartFolder]);
 
     const handleDelete = () => {
         if (window.confirm(`Delete "${nodeData.label}"?`)) {
@@ -317,59 +345,7 @@ const TextFileWriterNode: React.FC<NodeProps> = ({ id, data }) => {
                 )}
             </div>
 
-            {/* Filename */}
-            <div style={{ marginBottom: '12px', fontSize: '12px' }}>
-                <label style={{ display: 'block', marginBottom: '4px' }}>Filename (without extension):</label>
-                {editingFilename ? (
-                    <input
-                        type="text"
-                        value={localFilename}
-                        onChange={(e) => setLocalFilename(e.target.value)}
-                        onBlur={() => {
-                            setEditingFilename(false);
-                            updateNodeCustomData(id, { filename: localFilename });
-                        }}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                                setEditingFilename(false);
-                                updateNodeCustomData(id, { filename: localFilename });
-                            }
-                        }}
-                        autoFocus
-                        style={{
-                            width: '100%',
-                            padding: '6px 8px',
-                            borderRadius: '4px',
-                            border: 'none',
-                            fontSize: '11px',
-                            color: '#000'
-                        }}
-                        placeholder="Enter filename..."
-                    />
-                ) : (
-                    <div
-                        onClick={() => {
-                            setEditingFilename(true);
-                            setLocalFilename(customData.filename);
-                        }}
-                        style={{
-                            width: '100%',
-                            padding: '6px 8px',
-                            borderRadius: '4px',
-                            border: 'none',
-                            fontSize: '11px',
-                            color: '#000',
-                            background: '#fff',
-                            cursor: 'text',
-                            minHeight: '17px',
-                            display: 'flex',
-                            alignItems: 'center'
-                        }}
-                    >
-                        {customData.filename || 'output'}
-                    </div>
-                )}
-            </div>
+
 
             {/* Options */}
             <div style={{ marginBottom: '12px', fontSize: '11px' }}>
@@ -397,11 +373,20 @@ const TextFileWriterNode: React.FC<NodeProps> = ({ id, data }) => {
                     cursor: canWrite ? 'pointer' : 'not-allowed',
                     fontWeight: 'bold',
                     width: '100%',
-                    marginBottom: '8px'
+                    marginBottom: '12px'
                 }}
             >
-                {isWriting ? '⏳ Writing...' : '💾 Write Text File'}
+                {(isWriting || nodeData.isExecuting) ? '📝 Writing...' : '📝 Write File'}
             </button>
+
+            {/* Input Keys Documentation */}
+            <div style={{ marginBottom: '12px', padding: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', fontSize: '10px' }}>
+                <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>📥 UPSTREAM INPUT KEYS:</div>
+                <div>• text_content - Text content to write</div>
+                <div>• output_dir - Output directory</div>
+
+                <div style={{ fontWeight: 'bold', marginTop: '4px' }}>📤 OUTPUT: Written file path string</div>
+            </div>
 
             {/* Status Messages */}
             {customData.lastWriteStatus === 'success' && customData.lastWriteMessage && (

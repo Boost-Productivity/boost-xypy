@@ -53,7 +53,7 @@ export const textFileLoaderNodeFactory: NodeFactory = (position) => {
             x: position.x - 160,
             y: position.y - 120,
         },
-        draggable: false,
+        draggable: true,
         data: {
             label: `Text Loader ${Date.now()}`,
             pythonFunction: `# Text file loader

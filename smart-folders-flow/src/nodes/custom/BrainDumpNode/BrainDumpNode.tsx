@@ -6,21 +6,33 @@ import { BrainDumpNodeData } from './BrainDumpNode.types';
 const BrainDumpNode: React.FC<NodeProps> = ({ id, data }) => {
     const [localCountdown, setLocalCountdown] = useState(0);
     const [isEditing, setIsEditing] = useState(false);
+    const [editingOutputDir, setEditingOutputDir] = useState(false);
+    const [localOutputDir, setLocalOutputDir] = useState('');
 
     const {
         executeSmartFolder,
         cancelExecution,
-        updateSmartFolderFunction,
         updateSmartFolderLabel,
-        updateSmartFolderManualInput,
         deleteSmartFolder,
         updateNodeCustomData,
     } = useStore();
 
     const nodeData = data as BrainDumpNodeData;
-    const customData = nodeData.customData || { countdownSeconds: 300, isCountingDown: false };
+    const defaultCustomData = {
+        countdownSeconds: 300, // 5 minutes default
+        isCountingDown: false,
+        brainDumpText: '',
+        outputDirectory: '/tmp/brain_dumps',
+        lastSavedFile: '',
+        lastSaveTime: undefined
+    };
 
-    // Update local countdown when countdown is active
+    const customData = {
+        ...defaultCustomData,
+        ...nodeData.customData // Override with actual data if it exists
+    };
+
+    // Timer countdown effect
     useEffect(() => {
         if (customData.isCountingDown && customData.startTime) {
             const interval = setInterval(() => {
@@ -29,15 +41,38 @@ const BrainDumpNode: React.FC<NodeProps> = ({ id, data }) => {
                 setLocalCountdown(remaining);
 
                 if (remaining === 0) {
-                    // Auto-execute when countdown reaches 0
+                    // Play ding sound and stop countdown
                     handleStopCountdown();
-                    executeSmartFolder(id);
+                    playDingSound();
                 }
             }, 1000);
 
             return () => clearInterval(interval);
         }
-    }, [customData.isCountingDown, customData.startTime, customData.countdownSeconds, id]);
+    }, [customData.isCountingDown, customData.startTime, customData.countdownSeconds]);
+
+    const playDingSound = () => {
+        try {
+            // Create a simple ding sound using Web Audio API
+            const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+            oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.1);
+
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.5);
+        } catch (error) {
+            console.log('Could not play ding sound:', error);
+        }
+    };
 
     const handleStartCountdown = useCallback(() => {
         updateNodeCustomData(id, {
@@ -54,18 +89,53 @@ const BrainDumpNode: React.FC<NodeProps> = ({ id, data }) => {
         setLocalCountdown(0);
     }, [id, updateNodeCustomData]);
 
-    const handleCountdownChange = (newCountdown: number) => {
+    const handleTimerChange = (minutes: number) => {
         updateNodeCustomData(id, {
-            countdownSeconds: newCountdown
+            countdownSeconds: minutes * 60
         });
     };
 
-    const handleExecute = () => {
-        executeSmartFolder(id);
+    const handleTextChange = (text: string) => {
+        updateNodeCustomData(id, {
+            brainDumpText: text
+        });
     };
 
-    const handleCancel = () => {
-        cancelExecution(id);
+    const handleOutputDirFocus = () => {
+        setEditingOutputDir(true);
+        setLocalOutputDir(customData.outputDirectory);
+    };
+
+    const handleOutputDirBlur = (value: string) => {
+        setEditingOutputDir(false);
+        updateNodeCustomData(id, {
+            outputDirectory: value
+        });
+    };
+
+    const handleSubmit = () => {
+        if (!customData.brainDumpText.trim()) {
+            alert('Please enter some text for your brain dump!');
+            return;
+        }
+        if (!customData.outputDirectory.trim()) {
+            alert('Please specify an output directory!');
+            return;
+        }
+
+        // Prepare inputs for the Python function
+        const inputs = {
+            brainDumpText: customData.brainDumpText,
+            outputDirectory: customData.outputDirectory
+        };
+
+        // Execute the Python function to save the brain dump
+        executeSmartFolder(id, inputs);
+
+        // Update last save time
+        updateNodeCustomData(id, {
+            lastSaveTime: Date.now()
+        });
     };
 
     const handleDelete = () => {
@@ -80,6 +150,7 @@ const BrainDumpNode: React.FC<NodeProps> = ({ id, data }) => {
         return `${mins}:${secs.toString().padStart(2, '0')}`;
     };
 
+    const displayTime = customData.isCountingDown ? localCountdown : customData.countdownSeconds;
     const progressPercentage = customData.isCountingDown
         ? ((customData.countdownSeconds - localCountdown) / customData.countdownSeconds) * 100
         : 0;
@@ -88,85 +159,22 @@ const BrainDumpNode: React.FC<NodeProps> = ({ id, data }) => {
         <div
             className="brain-dump-node"
             style={{
-                background: 'linear-gradient(135deg, #4fc3f7, #1976d2)',
-                border: '3px solid #0d47a1',
-                borderRadius: '50%',
-                width: '200px',
-                height: '200px',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
+                background: 'linear-gradient(135deg, #9c27b0, #673ab7)',
+                border: '3px solid #4a148c',
+                borderRadius: '12px',
+                padding: '16px',
+                minWidth: '350px',
                 color: 'white',
                 position: 'relative',
-                boxShadow: '0 8px 24px rgba(25, 118, 210, 0.4)',
-                transition: 'all 0.3s ease',
+                boxShadow: '0 8px 24px rgba(156, 39, 176, 0.4)',
             }}
         >
-            {/* Input handle - top */}
+            {/* Handles */}
             <Handle type="target" position={Position.Top} />
+            <Handle type="source" position={Position.Bottom} />
 
-            {/* Progress ring */}
-            {customData.isCountingDown && (
-                <svg
-                    style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        width: '100%',
-                        height: '100%',
-                        transform: 'rotate(-90deg)'
-                    }}
-                >
-                    <circle
-                        cx="50%"
-                        cy="50%"
-                        r="90"
-                        fill="none"
-                        stroke="rgba(255,255,255,0.3)"
-                        strokeWidth="6"
-                    />
-                    <circle
-                        cx="50%"
-                        cy="50%"
-                        r="90"
-                        fill="none"
-                        stroke="white"
-                        strokeWidth="6"
-                        strokeDasharray={`${2 * Math.PI * 90}`}
-                        strokeDashoffset={`${2 * Math.PI * 90 * (1 - progressPercentage / 100)}`}
-                        style={{ transition: 'stroke-dashoffset 0.3s ease' }}
-                    />
-                </svg>
-            )}
-
-            {/* Delete button */}
-            <button
-                onClick={handleDelete}
-                style={{
-                    position: 'absolute',
-                    top: '5px',
-                    right: '5px',
-                    background: 'rgba(220, 53, 69, 0.9)',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '50%',
-                    width: '24px',
-                    height: '24px',
-                    cursor: 'pointer',
-                    fontSize: '12px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                }}
-                title="Delete node"
-            >
-                ×
-            </button>
-
-            {/* Content */}
-            <div style={{ textAlign: 'center', zIndex: 1 }}>
-                {/* Title */}
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                 {isEditing ? (
                     <input
                         type="text"
@@ -187,62 +195,112 @@ const BrainDumpNode: React.FC<NodeProps> = ({ id, data }) => {
                             border: '1px solid white',
                             color: 'white',
                             borderRadius: '4px',
-                            padding: '2px 6px',
+                            padding: '4px 8px',
                             fontSize: '14px',
-                            textAlign: 'center',
-                            width: '120px'
+                            flex: 1
                         }}
                     />
                 ) : (
-                    <h4
+                    <h3
                         onClick={() => setIsEditing(true)}
-                        style={{
-                            margin: '0 0 8px 0',
-                            fontSize: '14px',
-                            cursor: 'pointer',
-                            padding: '2px'
-                        }}
+                        style={{ margin: 0, cursor: 'pointer', flex: 1 }}
                     >
-                        {nodeData.label}
-                    </h4>
+                        🧠 {nodeData.label}
+                    </h3>
                 )}
 
-                {/* Timer Display */}
-                <div style={{ fontSize: '24px', fontWeight: 'bold', margin: '8px 0' }}>
-                    {customData.isCountingDown ? formatTime(localCountdown) : formatTime(customData.countdownSeconds)}
+                <button
+                    onClick={handleDelete}
+                    style={{
+                        background: 'rgba(220, 53, 69, 0.9)',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        width: '24px',
+                        height: '24px',
+                        cursor: 'pointer',
+                        fontSize: '12px'
+                    }}
+                >
+                    ×
+                </button>
+            </div>
+
+            {/* Timer Section */}
+            <div style={{ marginBottom: '12px', textAlign: 'center' }}>
+                <div style={{
+                    fontSize: '24px',
+                    fontWeight: 'bold',
+                    marginBottom: '8px',
+                    color: customData.isCountingDown ? (localCountdown < 60 ? '#ff5722' : 'white') : 'white'
+                }}>
+                    {formatTime(displayTime)}
                 </div>
+
+                {/* Progress bar */}
+                {customData.isCountingDown && (
+                    <div style={{
+                        width: '100%',
+                        height: '4px',
+                        backgroundColor: 'rgba(255,255,255,0.3)',
+                        borderRadius: '2px',
+                        marginBottom: '8px',
+                        overflow: 'hidden'
+                    }}>
+                        <div style={{
+                            width: `${progressPercentage}%`,
+                            height: '100%',
+                            backgroundColor: localCountdown < 60 ? '#ff5722' : '#4caf50',
+                            transition: 'width 0.3s ease'
+                        }} />
+                    </div>
+                )}
 
                 {/* Timer Controls */}
                 <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', flexWrap: 'wrap' }}>
                     {!customData.isCountingDown ? (
                         <>
                             <button
-                                onClick={() => handleCountdownChange(300)}
+                                onClick={() => handleTimerChange(5)}
                                 style={{
-                                    background: 'rgba(255,255,255,0.2)',
+                                    background: customData.countdownSeconds === 300 ? 'rgba(76, 175, 80, 0.8)' : 'rgba(255,255,255,0.2)',
                                     color: 'white',
                                     border: '1px solid white',
                                     borderRadius: '4px',
-                                    padding: '2px 6px',
-                                    fontSize: '10px',
+                                    padding: '4px 8px',
+                                    fontSize: '11px',
                                     cursor: 'pointer'
                                 }}
                             >
                                 5m
                             </button>
                             <button
-                                onClick={() => handleCountdownChange(600)}
+                                onClick={() => handleTimerChange(10)}
                                 style={{
-                                    background: 'rgba(255,255,255,0.2)',
+                                    background: customData.countdownSeconds === 600 ? 'rgba(76, 175, 80, 0.8)' : 'rgba(255,255,255,0.2)',
                                     color: 'white',
                                     border: '1px solid white',
                                     borderRadius: '4px',
-                                    padding: '2px 6px',
-                                    fontSize: '10px',
+                                    padding: '4px 8px',
+                                    fontSize: '11px',
                                     cursor: 'pointer'
                                 }}
                             >
                                 10m
+                            </button>
+                            <button
+                                onClick={() => handleTimerChange(15)}
+                                style={{
+                                    background: customData.countdownSeconds === 900 ? 'rgba(76, 175, 80, 0.8)' : 'rgba(255,255,255,0.2)',
+                                    color: 'white',
+                                    border: '1px solid white',
+                                    borderRadius: '4px',
+                                    padding: '4px 8px',
+                                    fontSize: '11px',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                15m
                             </button>
                             <button
                                 onClick={handleStartCountdown}
@@ -251,8 +309,8 @@ const BrainDumpNode: React.FC<NodeProps> = ({ id, data }) => {
                                     color: 'white',
                                     border: '1px solid white',
                                     borderRadius: '4px',
-                                    padding: '2px 6px',
-                                    fontSize: '10px',
+                                    padding: '4px 8px',
+                                    fontSize: '11px',
                                     cursor: 'pointer'
                                 }}
                             >
@@ -267,8 +325,8 @@ const BrainDumpNode: React.FC<NodeProps> = ({ id, data }) => {
                                 color: 'white',
                                 border: '1px solid white',
                                 borderRadius: '4px',
-                                padding: '2px 6px',
-                                fontSize: '10px',
+                                padding: '4px 8px',
+                                fontSize: '11px',
                                 cursor: 'pointer'
                             }}
                         >
@@ -276,28 +334,150 @@ const BrainDumpNode: React.FC<NodeProps> = ({ id, data }) => {
                         </button>
                     )}
                 </div>
-
-                {/* Quick Execute */}
-                <button
-                    onClick={handleExecute}
-                    disabled={nodeData.isExecuting}
-                    style={{
-                        background: nodeData.isExecuting ? 'rgba(255,193,7,0.8)' : 'rgba(33, 150, 243, 0.8)',
-                        color: 'white',
-                        border: '1px solid white',
-                        borderRadius: '4px',
-                        padding: '4px 8px',
-                        fontSize: '10px',
-                        cursor: nodeData.isExecuting ? 'not-allowed' : 'pointer',
-                        marginTop: '8px'
-                    }}
-                >
-                    {nodeData.isExecuting ? 'Running...' : 'Execute Now'}
-                </button>
             </div>
 
-            {/* Output handle - bottom */}
-            <Handle type="source" position={Position.Bottom} />
+            {/* Brain Dump Text Area */}
+            <div style={{ marginBottom: '12px' }}>
+                <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px' }}>
+                    Brain Dump Text:
+                </label>
+                <textarea
+                    value={customData.brainDumpText}
+                    onChange={(e) => handleTextChange(e.target.value)}
+                    placeholder="Start typing your thoughts here..."
+                    rows={6}
+                    style={{
+                        width: '100%',
+                        background: 'rgba(255,255,255,0.1)',
+                        border: '1px solid rgba(255,255,255,0.3)',
+                        borderRadius: '6px',
+                        padding: '8px',
+                        color: 'white',
+                        fontSize: '12px',
+                        resize: 'vertical',
+                        fontFamily: 'system-ui, -apple-system, sans-serif'
+                    }}
+                />
+                <div style={{ fontSize: '10px', opacity: 0.7, marginTop: '2px' }}>
+                    {(customData.brainDumpText || '').length} characters
+                </div>
+            </div>
+
+            {/* Output Directory */}
+            <div style={{ marginBottom: '12px' }}>
+                <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px' }}>
+                    Output Directory:
+                </label>
+                {editingOutputDir ? (
+                    <input
+                        type="text"
+                        value={localOutputDir}
+                        onChange={(e) => setLocalOutputDir(e.target.value)}
+                        onBlur={(e) => handleOutputDirBlur(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                handleOutputDirBlur(e.currentTarget.value);
+                            }
+                        }}
+                        autoFocus
+                        style={{
+                            width: '100%',
+                            padding: '6px 8px',
+                            borderRadius: '4px',
+                            border: 'none',
+                            fontSize: '11px',
+                            color: '#000'
+                        }}
+                        placeholder="Enter output directory path..."
+                    />
+                ) : (
+                    <div
+                        onClick={handleOutputDirFocus}
+                        style={{
+                            width: '100%',
+                            padding: '6px 8px',
+                            borderRadius: '4px',
+                            border: '1px solid rgba(255,255,255,0.3)',
+                            fontSize: '11px',
+                            color: 'white',
+                            background: 'rgba(255,255,255,0.1)',
+                            cursor: 'text',
+                            minHeight: '17px',
+                            display: 'flex',
+                            alignItems: 'center'
+                        }}
+                    >
+                        {customData.outputDirectory || 'Click to set output directory...'}
+                    </div>
+                )}
+            </div>
+
+            {/* Submit Button */}
+            <button
+                onClick={handleSubmit}
+                disabled={nodeData.isExecuting || !customData.brainDumpText.trim() || !customData.outputDirectory.trim()}
+                style={{
+                    width: '100%',
+                    background: nodeData.isExecuting
+                        ? 'rgba(255,193,7,0.8)'
+                        : (!customData.brainDumpText.trim() || !customData.outputDirectory.trim())
+                            ? 'rgba(107,114,128,0.5)'
+                            : 'rgba(76, 175, 80, 0.8)',
+                    border: 'none',
+                    borderRadius: '6px',
+                    padding: '10px',
+                    color: 'white',
+                    fontSize: '14px',
+                    fontWeight: 'bold',
+                    cursor: (!customData.brainDumpText.trim() || !customData.outputDirectory.trim()) ? 'not-allowed' : 'pointer',
+                    marginBottom: '8px'
+                }}
+            >
+                {nodeData.isExecuting ? '💾 Saving...' : '💾 Submit Brain Dump'}
+            </button>
+
+            {/* Last saved info */}
+            {customData.lastSavedFile && (
+                <div style={{ fontSize: '10px', opacity: 0.7, textAlign: 'center' }}>
+                    Last saved: {new Date(customData.lastSaveTime || 0).toLocaleTimeString()}
+                    <br />
+                    {customData.lastSavedFile.split('/').pop()}
+                </div>
+            )}
+
+            {/* Output */}
+            {nodeData.lastOutput && (
+                <div style={{
+                    marginTop: '8px',
+                    background: 'rgba(0,0,0,0.3)',
+                    padding: '8px',
+                    borderRadius: '4px',
+                    fontSize: '11px',
+                    maxHeight: '100px',
+                    overflowY: 'auto'
+                }}>
+                    <strong>Saved to:</strong>
+                    <div style={{ marginTop: '4px', fontFamily: 'monospace' }}>
+                        {nodeData.lastOutput}
+                    </div>
+                </div>
+            )}
+
+            {/* Streaming Logs */}
+            {nodeData.streamingLogs && (
+                <div style={{
+                    marginTop: '8px',
+                    background: 'rgba(0,0,0,0.2)',
+                    padding: '6px',
+                    borderRadius: '4px',
+                    fontSize: '10px',
+                    maxHeight: '60px',
+                    overflowY: 'auto',
+                    fontFamily: 'monospace'
+                }}>
+                    {nodeData.streamingLogs}
+                </div>
+            )}
         </div>
     );
 };

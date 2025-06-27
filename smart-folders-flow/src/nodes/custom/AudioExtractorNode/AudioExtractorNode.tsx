@@ -29,30 +29,63 @@ const AudioExtractorNode: React.FC<NodeProps> = ({ id, data }) => {
 
     // Handle incoming data from upstream nodes
     useEffect(() => {
-        // Check manual input first (only for actual user input, not our JSON)
-        let incomingPath = nodeData.manualInput || '';
+        let incomingVideoPath = '';
+        let incomingOutputDir = '';
 
-        // Then check all connected inputs for video file paths
+        // Check manual input first
+        const manualInput = nodeData.manualInput || '';
+
+        // Check all connected inputs
         if (nodeData.inputs && Object.keys(nodeData.inputs).length > 0) {
-            // Get the most recent input (highest timestamp)
             const sortedInputs = Object.entries(nodeData.inputs).sort(
                 ([, a], [, b]) => b.timestamp - a.timestamp
             );
 
-            if (sortedInputs.length > 0) {
-                const [sourceId, inputData] = sortedInputs[0];
-                incomingPath = inputData.value || incomingPath;
-                console.log(`🎵 AudioExtractor received data from ${inputData.nodeLabel} (${sourceId}): ${incomingPath}`);
+            for (const [sourceId, inputData] of sortedInputs) {
+                const value = inputData.value || '';
+                console.log(`🎵 AudioExtractor received data from ${inputData.nodeLabel} (${sourceId}): ${value}`);
+
+                // Try to parse as JSON first (for structured data)
+                try {
+                    const parsed = JSON.parse(value);
+                    if (parsed.video_path) incomingVideoPath = parsed.video_path;
+                    if (parsed.output_dir) incomingOutputDir = parsed.output_dir;
+                    if (parsed.output_directory) incomingOutputDir = parsed.output_directory;
+                } catch {
+                    // Not JSON, treat as direct values
+                    // Look for video file extensions
+                    if (value.match(/\.(mp4|avi|mov|mkv|webm|flv|wmv)$/i)) {
+                        incomingVideoPath = value;
+                    }
+                    // Look for directory paths
+                    else if (value.includes('/') && !value.includes('.')) {
+                        incomingOutputDir = value;
+                    }
+                    // Default to video path if unsure
+                    else if (value.includes('/') || value.includes('\\')) {
+                        incomingVideoPath = value;
+                    }
+                }
             }
         }
 
-        if (incomingPath && incomingPath !== customData.videoFilePath) {
-            console.log(`🎵 AudioExtractor updating video path: ${incomingPath}`);
-            updateNodeCustomData(id, {
-                videoFilePath: incomingPath
-            });
+        // Update if we have new data
+        const updates: any = {};
+        if (incomingVideoPath && incomingVideoPath !== customData.videoFilePath) {
+            updates.videoFilePath = incomingVideoPath;
         }
-    }, [nodeData.manualInput, nodeData.inputs, customData.videoFilePath, id, updateNodeCustomData]);
+        if (incomingOutputDir && incomingOutputDir !== customData.outputDirectory) {
+            updates.outputDirectory = incomingOutputDir;
+        }
+        if (manualInput && manualInput !== customData.videoFilePath && !incomingVideoPath) {
+            updates.videoFilePath = manualInput;
+        }
+
+        if (Object.keys(updates).length > 0) {
+            console.log(`🎵 AudioExtractor updating:`, updates);
+            updateNodeCustomData(id, updates);
+        }
+    }, [nodeData.manualInput, nodeData.inputs, customData.videoFilePath, customData.outputDirectory, id, updateNodeCustomData]);
 
     const handleExtractAudio = useCallback(async () => {
         if (!customData.videoFilePath || !customData.outputDirectory) {
@@ -399,6 +432,14 @@ const AudioExtractorNode: React.FC<NodeProps> = ({ id, data }) => {
             >
                 {isExtracting ? '🔄 Extracting...' : '🎵 Extract Audio'}
             </button>
+
+            {/* Input Keys Documentation */}
+            <div style={{ marginBottom: '12px', padding: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', fontSize: '10px' }}>
+                <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>📥 UPSTREAM INPUT KEYS:</div>
+                <div>• video_path - Video file path</div>
+                <div>• output_dir - Output directory</div>
+                <div style={{ fontWeight: 'bold', marginTop: '4px' }}>📤 OUTPUT: Audio file path string</div>
+            </div>
 
             {/* Status Display */}
             {(customData.lastExtractionStatus || customData.lastExtractionMessage) && (

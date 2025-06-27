@@ -48,6 +48,7 @@ const PromptTemplateNode: React.FC<NodeProps> = ({ id, data }) => {
     const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
     const [showApiKeyInput, setShowApiKeyInput] = useState(false);
     const [apiKeyInput, setApiKeyInput] = useState('');
+    const [copySuccess, setCopySuccess] = useState(false);
 
     const {
         executeSmartFolder,
@@ -191,6 +192,16 @@ const PromptTemplateNode: React.FC<NodeProps> = ({ id, data }) => {
 
     const updateCustomData = (updates: Partial<typeof customData>) => {
         updateNodeCustomData(id, updates);
+    };
+
+    const handleCopyToClipboard = async () => {
+        try {
+            await navigator.clipboard.writeText(nodeData.lastOutput || '');
+            setCopySuccess(true);
+            setTimeout(() => setCopySuccess(false), 2000);
+        } catch (error) {
+            console.error('Failed to copy to clipboard:', error);
+        }
     };
 
     const currentApiKey = getStoredApiKey();
@@ -602,7 +613,23 @@ const PromptTemplateNode: React.FC<NodeProps> = ({ id, data }) => {
                     overflowY: 'auto',
                     marginBottom: '8px'
                 }}>
-                    <strong>Claude's Response:</strong>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                        <strong>Claude's Response:</strong>
+                        <button
+                            onClick={handleCopyToClipboard}
+                            style={{
+                                background: 'rgba(255,255,255,0.2)',
+                                color: 'white',
+                                border: '1px solid white',
+                                borderRadius: '4px',
+                                padding: '4px 8px',
+                                fontSize: '10px',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            {copySuccess ? '✅ Copied' : '📋 Copy'}
+                        </button>
+                    </div>
                     <div style={{ marginTop: '4px', whiteSpace: 'pre-wrap' }}>
                         {nodeData.lastOutput}
                     </div>

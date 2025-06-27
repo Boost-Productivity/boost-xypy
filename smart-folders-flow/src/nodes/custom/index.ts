@@ -29,6 +29,8 @@ import { webhookNodeConfig, webhookNodeFactory } from './WebhookNode';
 import { webhookMakerNodeConfig, webhookMakerNodeFactory } from './WebhookMakerNode';
 import { textFileWriterNodeConfig, textFileWriterNodeFactory } from './TextFileWriterNode';
 import { textFileLoaderNodeConfig, textFileLoaderNodeFactory } from './TextFileLoaderNode';
+import { webmToMp4NodeConfig, webmToMp4NodeFactory } from './WebmToMp4Node';
+import { fileDeleterNodeConfig, fileDeleterNodeFactory } from './FileDeleterNode';
 
 // Register the base SmartFolderNode
 const smartFolderNodeConfig: NodeTypeConfig = {
@@ -101,6 +103,8 @@ const registerNodes = () => {
     nodeRegistry.register(webhookMakerNodeConfig, webhookMakerNodeFactory);
     nodeRegistry.register(textFileWriterNodeConfig, textFileWriterNodeFactory);
     nodeRegistry.register(textFileLoaderNodeConfig, textFileLoaderNodeFactory);
+    nodeRegistry.register(webmToMp4NodeConfig, webmToMp4NodeFactory);
+    nodeRegistry.register(fileDeleterNodeConfig, fileDeleterNodeFactory);
 
     console.log(`✅ Registered ${nodeRegistry.getNodeTypes().length} node types`);
 };
@@ -134,6 +138,8 @@ export {
     webhookMakerNodeConfig,
     textFileWriterNodeConfig,
     textFileLoaderNodeConfig,
+    webmToMp4NodeConfig,
+    fileDeleterNodeConfig,
     brainDumpNodeFactory,
     labelNodeFactory,
     labelMakerNodeFactory,
@@ -157,7 +163,9 @@ export {
     webhookNodeFactory,
     webhookMakerNodeFactory,
     textFileWriterNodeFactory,
-    textFileLoaderNodeFactory
+    textFileLoaderNodeFactory,
+    webmToMp4NodeFactory,
+    fileDeleterNodeFactory
 };
 
 export default nodeRegistry;

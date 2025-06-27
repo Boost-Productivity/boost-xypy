@@ -7,7 +7,7 @@ export interface TextFileWriterNodeData extends BaseNodeData {
         outputDirectory: string; // Directory where to save the file
         filename: string; // Custom filename (without extension)
         overwriteExisting: boolean; // Whether to overwrite existing files
-        lastWriteStatus?: 'success' | 'error';
+        lastWriteStatus?: 'success' | 'error' | 'writing';
         lastWriteMessage?: string;
         lastWriteTime?: number;
         savedFilePath?: string; // Path of the last saved file

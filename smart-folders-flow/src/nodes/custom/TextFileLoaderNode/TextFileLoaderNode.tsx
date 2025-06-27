@@ -424,7 +424,9 @@ const TextFileLoaderNode: React.FC<NodeProps> = ({ id, data }) => {
                             fontFamily: 'monospace',
                             whiteSpace: 'pre-wrap',
                             wordBreak: 'break-word',
-                            color: '#e8f5e8'
+                            color: '#e8f5e8',
+                            userSelect: 'none',
+                            pointerEvents: 'none'
                         }}
                     >
                         {customData.fileContent}

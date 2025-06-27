@@ -11,48 +11,50 @@ export const whisperTranscriptionNodeConfig: NodeTypeConfig = {
         label: 'Whisper Transcription',
         pythonFunction: `# Whisper Audio Transcription
 # Transcribes audio files using OpenAI Whisper
-import whisper
-import os
-import time
-import json
-
 def process(inputs):
     """
     Transcribe audio file using Whisper
     """
-    # Get audio file path from manual input or upstream nodes
-    audio_path = ""
+    import whisper
+    import os
+    import time
+    import json
+    import logging
     
-    # First check manual input
-    manual_input = inputs.get("manual", "").strip()
-    if manual_input:
-        audio_path = manual_input
+    logging.info(f"WhisperTranscription inputs: {inputs}")
     
-    # If no manual input, check connected inputs
+    # Get audio file path from direct upstream inputs first
+    audio_path = inputs.get("audio_path", "").strip()
+    
+    # Get configuration from inputs
+    model_size = inputs.get("model", "base")
+    language = inputs.get("language")
+    temperature = inputs.get("temperature", 0.0)
+    verbose = inputs.get("verbose", False)
+    
+    # If no direct inputs, check manual input
+    if not audio_path:
+        manual_input = inputs.get("manual", "").strip()
+        if manual_input:
+            audio_path = manual_input
+    
+    # If still no audio path, check other inputs
     if not audio_path:
         for key, value in inputs.items():
-            if key != "manual" and value:
+            if key not in ["manual", "model", "language", "temperature", "verbose"] and value:
                 audio_path = str(value).strip()
                 break
     
+    logging.info(f"WhisperTranscription resolved - audio_path: {audio_path}, model: {model_size}")
+    
     if not audio_path:
-        return "Error: No audio file path provided"
+        return f"Error: No audio file path provided. Available keys: {list(inputs.keys())}"
     
     # Check if file exists
     if not os.path.exists(audio_path):
         return f"Error: Audio file not found: {audio_path}"
     
     try:
-        # Get node custom data for configuration
-        import json
-        import sys
-        
-        # Default settings
-        model_size = "base"
-        language = None
-        temperature = 0.0
-        verbose = False
-        
         # Load Whisper model
         print(f"Loading Whisper model: {model_size}")
         model = whisper.load_model(model_size)
@@ -63,12 +65,12 @@ def process(inputs):
         
         # Set up transcription options
         options = {
-            "temperature": temperature,
-            "verbose": verbose
+            "temperature": float(temperature),
+            "verbose": bool(verbose)
         }
         
         if language:
-            options["language"] = language
+            options["language"] = str(language)
         
         # Perform transcription
         result = model.transcribe(audio_path, **options)
@@ -82,11 +84,11 @@ def process(inputs):
         print(f"Transcription completed in {processing_time:.2f} seconds")
         print(f"Transcript preview: {transcript[:100]}...")
         
-        # Return the transcript for downstream nodes
+        # Return just the transcript text for downstream nodes
         return transcript
         
     except Exception as e:
-        error_msg = f"Transcription error: {str(e)}"
+        error_msg = f"Error: Transcription failed - {str(e)}"
         print(error_msg)
         return error_msg`,
         manualInput: '',
@@ -117,92 +119,13 @@ export const whisperTranscriptionNodeFactory: NodeFactory = (position) => {
         },
         data: {
             label: `Whisper Transcription ${Date.now()}`,
-            pythonFunction: `# Whisper Audio Transcription
-# Transcribes audio files using OpenAI Whisper
-import whisper
-import os
-import time
-import json
-
-def process(inputs):
-    """
-    Transcribe audio file using Whisper
-    """
-    # Get audio file path from manual input or upstream nodes
-    audio_path = ""
-    
-    # First check manual input
-    manual_input = inputs.get("manual", "").strip()
-    if manual_input:
-        audio_path = manual_input
-    
-    # If no manual input, check connected inputs
-    if not audio_path:
-        for key, value in inputs.items():
-            if key != "manual" and value:
-                audio_path = str(value).strip()
-                break
-    
-    if not audio_path:
-        return "Error: No audio file path provided"
-    
-    # Check if file exists
-    if not os.path.exists(audio_path):
-        return f"Error: Audio file not found: {audio_path}"
-    
-    try:
-        # Get node custom data for configuration
-        import json
-        import sys
-        
-        # Default settings
-        model_size = "base"
-        language = None
-        temperature = 0.0
-        verbose = False
-        
-        # Load Whisper model
-        print(f"Loading Whisper model: {model_size}")
-        model = whisper.load_model(model_size)
-        
-        # Transcribe audio
-        print(f"Transcribing audio file: {audio_path}")
-        start_time = time.time()
-        
-        # Set up transcription options
-        options = {
-            "temperature": temperature,
-            "verbose": verbose
-        }
-        
-        if language:
-            options["language"] = language
-        
-        # Perform transcription
-        result = model.transcribe(audio_path, **options)
-        
-        end_time = time.time()
-        processing_time = end_time - start_time
-        
-        # Extract transcript text
-        transcript = result["text"].strip()
-        
-        print(f"Transcription completed in {processing_time:.2f} seconds")
-        print(f"Transcript preview: {transcript[:100]}...")
-        
-        # Return the transcript for downstream nodes
-        return transcript
-        
-    except Exception as e:
-        error_msg = f"Transcription error: {str(e)}"
-        print(error_msg)
-        return error_msg`,
+            pythonFunction: whisperTranscriptionNodeConfig.defaultData.pythonFunction,
             manualInput: '',
             lastOutput: '',
             streamingLogs: '',
             inputs: {},
             isExecuting: false,
-            nodeType: 'whisperTranscription',
+            nodeType: 'whisperTranscription' as const,
             customData: {
                 audioFilePath: '',
                 model: 'base',
@@ -210,6 +133,6 @@ def process(inputs):
                 temperature: 0.0,
                 verbose: false,
             }
-        } as BaseNodeData,
+        } as WhisperTranscriptionNodeData,
     };
 }; 
